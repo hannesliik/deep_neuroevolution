@@ -1,3 +1,8 @@
+# pycharm
+.idea/
+# model parameters
+*.pth
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
