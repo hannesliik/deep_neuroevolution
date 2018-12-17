@@ -1,0 +1,15 @@
+Organize code:
+
+class DeepEvolution:
+  environment: gym.Evn
+  model: torch.Module
+  evaluation_function: function
+  evolution_strategy: function
+  something_callback: function
+  
+  def train():
+    
+  
+  
+  
+  
