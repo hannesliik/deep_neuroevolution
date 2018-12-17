@@ -1,0 +1,9 @@
+evolution strategies:
+  - Adaptive std / annealing
+  - combine weights of 2 parents
+    - Average of 2
+    - 50% and 50% - bernoulli distribution sampling?
+    - research more?
+    
+
+selecting actions from distribution vs best action
