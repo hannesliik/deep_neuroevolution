@@ -4,6 +4,8 @@ evolution strategies:
     - Average of 2
     - 50% and 50% - bernoulli distribution sampling?
     - research more?
-    
+  - http://blog.otoro.net/2017/10/29/visual-evolution-strategies/
+    - CMA-ES? but probably too many parameters
+    - Nothing about combining. Probably lots of people have tried and failed
 
 selecting actions from distribution vs best action
