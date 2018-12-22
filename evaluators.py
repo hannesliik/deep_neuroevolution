@@ -3,6 +3,7 @@ from typing import List, Tuple, Callable
 from multiprocessing import Pool, cpu_count
 
 from gym import Env
+
 import numpy as np
 
 from utils import Policy, ObsNormalizer
@@ -50,7 +51,7 @@ class ParallelEnvEvaluator(Evaluator):
     def __call__(self, policies: List[Policy], times=1) -> Tuple[List[Tuple[float, Policy]], Policy]:
         with Pool(cpu_count()) as p:
             # List[Tuple[float, PolicyInterface]]
-            results = p.starmap(self._eval_policy, policies)
+            results = p.starmap(self._eval_policy, [(policy, times) for policy in policies])
         results = sorted(results, key=lambda x: x[0], reverse=True)
         return results, results[0][1]
 

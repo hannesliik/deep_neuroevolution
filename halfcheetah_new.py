@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import gym
+gym.logger.set_level(40)
 from evolution_strategies import BasicStrategy
 from evaluators import ParallelEnvEvaluator
 from deep_neuroevolution import GAOptimizer
@@ -43,6 +44,12 @@ if __name__ == '__main__':
     gym.logger.set_level(40)
     # Create evaluator
     evaluator = ParallelEnvEvaluator(env_factory=env_factory)
-    evolution_strategy = BasicStrategy(evaluator, policy_factory(), generation_size=1000, n_elites=20, n_check_top=10,
+    evolution_strategy = BasicStrategy(evaluator, policy_factory, generation_size=1000, n_elites=20, n_check_top=10,
                                        n_check_times=30)
-    optimizer = GAOptimizer(env_factory, policy_factory, evolution_strategy, evaluator)
+    def eval_callback(results):
+        rewards = [result[0] for result in results]
+        print(np.mean(rewards), rewards[:10])
+    #eval_callback = lambda results: print(np.mean(results), results[:10])
+    optimizer = GAOptimizer(env_factory, policy_factory, evolution_strategy, evaluator, eval_callback=eval_callback)
+    for _ in range(20):
+        optimizer.train_generation()

@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from typing import List, Tuple, Callable
-from multiprocessing import Pool, cpu_count
 import random
 
 import torch
@@ -63,10 +62,9 @@ class BasicStrategy(EvolutionaryStrategy):
         # Throw away the rewards to get a list of policies
         elites = [elite[1] for elite in elites]
 
-        with Pool(cpu_count()) as p:
-            # Evaluate the top n_check_top elites to
-            elites_checked = p.starmap(self.eval_fn, [(e, self.n_check_times) for e in elites[:self.n_check_top]])
-            elites_checked = sorted(elites_checked, key=lambda x: x[0], reverse=True)
+        # Evaluate the top n_check_top elites to
+        elites_checked, _ = self.eval_fn(elites[:self.n_check_top], self.n_check_times)
+        elites_checked = sorted(elites_checked, key=lambda x: x[0], reverse=True)
 
         offspring = self._gen_population(elites, self.gen_size)
         offspring.append(elites_checked[0][1])
