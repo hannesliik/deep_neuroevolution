@@ -5,10 +5,10 @@ import random
 
 import torch
 
-from utils import PolicyInterface
+from utils import Policy
 
 
-class ESInterface(ABC):
+class EvolutionaryStrategy(ABC):
     """
     Evolution Strategy Interface.
     The strategy should take a list of policies and their rewards, do some mutations
@@ -16,7 +16,7 @@ class ESInterface(ABC):
     """
 
     @abstractmethod
-    def __call__(self, prev_gen: List[Tuple[int, PolicyInterface]]) -> List[PolicyInterface]:
+    def __call__(self, prev_gen: List[Tuple[float, Policy]]) -> List[Policy]:
         """
         Input is a list of tuples (reward, policy)
         Output is the new generation of policies
@@ -26,7 +26,7 @@ class ESInterface(ABC):
         pass
 
 
-class BasicStrategy(ESInterface):
+class BasicStrategy(EvolutionaryStrategy):
     """
     The standard evolution strategy. Presumes pytorch policies
     """
@@ -55,7 +55,7 @@ class BasicStrategy(ESInterface):
             offspring.append(policy)
         return offspring
 
-    def __call__(self, prev_gen: List[Tuple[int, PolicyInterface]]) -> List[PolicyInterface]:
+    def __call__(self, prev_gen: List[Tuple[int, Policy]]) -> List[Policy]:
         # Sort the policies by rewards and take top n_elites
         elites = sorted(prev_gen, key=lambda x: x[0], reverse=True)[:self.n_elites]
 

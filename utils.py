@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 
 
-class PolicyInterface(ABC):
+class Policy(ABC):
     """
     An interface for policies. It should accept a numpy array as the observation
     and return a numpy array as the action
@@ -12,6 +12,7 @@ class PolicyInterface(ABC):
     @abstractmethod
     def __call__(self, observation: np.ndarray) -> np.ndarray:
         pass
+
 
 class ObsNormalizer:
     """
