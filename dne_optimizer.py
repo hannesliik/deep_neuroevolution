@@ -1,5 +1,6 @@
 import gym
 from typing import Tuple, List
+from multiprocessing import Pool, cpu_count
 
 import numpy as np
 
@@ -9,16 +10,23 @@ from evolution_strategies import ESInterface
 
 class DeepEvolution:
 
-    def __init__(self, env_factory: function, model_factory: function,
-                 evaluation_function: function, evolution_strategy: function):
-        self._env_factory = env_factory
-        self._model_factory = model_factory
-        self.evaluation_function = evaluation_function
-        self.evolution_strategy = evolution_strategy
-        self.normalizer = ObsNormalizer(env_factory, n_samples=1000)
+    def __init__(self, env_factory: function,
+                 model_factory: function,
+                 evolution_strategy: ESInterface,
+                 evaluation_function: function = None):
+        self._env_factory: function = env_factory
+        self._model_factory: function = model_factory
+        if evaluation_function is None:
+            self.evaluation_function = self.default_eval_function
+        else:
+            self.evaluation_function = evaluation_function
+
+        self.evolution_strategy: ESInterface = evolution_strategy
+        self.normalizer: ObsNormalizer = ObsNormalizer(env_factory, n_samples=1000)
+        self.generation: List[PolicyInterface] = [model_factory()]
         # something_callback: function
 
-    def default_eval_function(self, policy: PolicyInterface, times=1, ) -> Tuple[int, PolicyInterface]:
+    def default_eval_function(self, policy: PolicyInterface, times=1,) -> Tuple[int, PolicyInterface]:
         env: gym.Env = self._env_factory()
         rewards = []
         for _ in range(times):
@@ -34,4 +42,8 @@ class DeepEvolution:
         return int(np.mean(rewards)), policy
 
     def train_generation(self):
-        pass
+        with Pool(cpu_count()) as p:
+            # List[Tuple[float, PolicyInterface]]
+            current_gen = p.starmap(self.evaluation_function, self.generation)
+        self.generation = self.evolution_strategy(current_gen)
+

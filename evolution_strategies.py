@@ -1,8 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import List, Tuple
-from multiprocessing import Pool
+from multiprocessing import Pool, cpu_count
+import random
 
 import torch
+
+from utils import PolicyInterface
 
 
 class ESInterface(ABC):
@@ -13,7 +16,7 @@ class ESInterface(ABC):
     """
 
     @abstractmethod
-    def gen_population(self, prev_gen: List[Tuple[int, PolicyInterface]]) -> List[PolicyInterface]:
+    def __call__(self, prev_gen: List[Tuple[int, PolicyInterface]]) -> List[PolicyInterface]:
         """
         Input is a list of tuples (reward, policy)
         Output is the new generation of policies
@@ -52,7 +55,7 @@ class BasicStrategy(ESInterface):
             offspring.append(policy)
         return offspring
 
-    def gen_population(self, prev_gen: List[Tuple[int, PolicyInterface]]) -> List[PolicyInterface]:
+    def __call__(self, prev_gen: List[Tuple[int, PolicyInterface]]) -> List[PolicyInterface]:
         # Sort the policies by rewards and take top n_elites
         elites = sorted(prev_gen, key=lambda x: x[0], reverse=True)[:self.n_elites]
 
