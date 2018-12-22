@@ -1,6 +1,7 @@
 import gym
 from abc import ABC, abstractmethod
 import numpy as np
+from typing import Callable
 
 
 class Policy(ABC):
@@ -21,14 +22,15 @@ class ObsNormalizer:
     """
     EPSILON = 1e-7
 
-    def __init__(self, env_factory: function, n_samples=1000):
+    def __init__(self, env_factory: Callable, n_samples=1000):
         env: gym.Env = env_factory()
         self.means, self.stds = self.gen_statistics(env, n_samples)
 
     def normalize(self, obs: np.ndarray):
         return (obs - self.means) * (self.stds + ObsNormalizer.EPSILON)
 
-    def gen_statistics(self, env, n):
+    @staticmethod
+    def gen_statistics(env, n):
         obs = env.reset()
         obs_dataset = [obs]
         for _ in range(n):

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Tuple
+from typing import List, Tuple, Callable
 from multiprocessing import Pool, cpu_count
 
 from gym import Env
@@ -9,17 +9,21 @@ from utils import Policy, ObsNormalizer
 
 
 class Evaluator(ABC):
+    """
+    Evaluator, when called, should take in a list of policies and return a
+    list of tuples (score, policy) and the best policy
+    """
     @abstractmethod
-    def __call__(self, policies: List[Policy]) -> List[Tuple[float, Policy]]:
+    def __call__(self, policies: List[Policy]) -> Tuple[List[Tuple[float, Policy]], Policy]:
         pass
 
 
 class EnvEvaluator(Evaluator):
-    def __init__(self, env_factory: function):
+    def __init__(self, env_factory: Callable):
         self.env: Env = env_factory()
         self.normalizer = ObsNormalizer(env_factory)
 
-    def __call__(self, policies: List[Policy], times=1) -> List[Tuple[float, Policy]]:
+    def __call__(self, policies: List[Policy], times=1) -> Tuple[List[Tuple[float, Policy]], Policy]:
         results: List[Tuple[float, Policy]] = []
         for policy in policies:
             rewards = []
@@ -34,19 +38,21 @@ class EnvEvaluator(Evaluator):
                     total_reward += reward
                 rewards.append(total_reward)
             results.append((int(np.mean(rewards)), policy))
-        return results
+        results = sorted(results, key=lambda x: x[0], reverse=True)
+        return results, results[0][1]
 
 
 class ParallelEnvEvaluator(Evaluator):
-    def __init__(self, env_factory: function):
+    def __init__(self, env_factory: Callable):
         self.env_factory = env_factory
         self.normalizer = ObsNormalizer(env_factory)
 
-    def __call__(self, policies: List[Policy], times=1) -> List[Tuple[float, Policy]]:
+    def __call__(self, policies: List[Policy], times=1) -> Tuple[List[Tuple[float, Policy]], Policy]:
         with Pool(cpu_count()) as p:
             # List[Tuple[float, PolicyInterface]]
             results = p.starmap(self._eval_policy, policies)
-        return results
+        results = sorted(results, key=lambda x: x[0], reverse=True)
+        return results, results[0][1]
 
     def _eval_policy(self, policy: Policy, times=1):
         env: Env = self.env_factory()

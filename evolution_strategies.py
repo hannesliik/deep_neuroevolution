@@ -1,11 +1,12 @@
 from abc import ABC, abstractmethod
-from typing import List, Tuple
+from typing import List, Tuple, Callable
 from multiprocessing import Pool, cpu_count
 import random
 
 import torch
 
 from utils import Policy
+from evaluators import Evaluator
 
 
 class EvolutionaryStrategy(ABC):
@@ -31,12 +32,12 @@ class BasicStrategy(EvolutionaryStrategy):
     The standard evolution strategy. Presumes pytorch policies
     """
 
-    def __init__(self, eval_function: function, policy_factory: function, generation_size: int = 1000,
+    def __init__(self, evaluator: Evaluator, policy_factory: Callable, generation_size: int = 1000,
                  n_elites: int = 20,
                  n_check_top: int = 10, n_check_times: int = 30):
         self.n_elites = n_elites
         self.gen_size = generation_size
-        self.eval_fn = eval_function
+        self.eval_fn = evaluator
         self.policy_factory = policy_factory
         # Params for finding the true elite
         self.n_check_top = n_check_top
