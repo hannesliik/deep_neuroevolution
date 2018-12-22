@@ -11,11 +11,11 @@ from evolution_strategies import ESInterface
 class DeepEvolution:
 
     def __init__(self, env_factory: function,
-                 model_factory: function,
+                 policy_factory: function,
                  evolution_strategy: ESInterface,
                  evaluation_function: function = None):
         self._env_factory: function = env_factory
-        self._model_factory: function = model_factory
+        self._model_factory: function = policy_factory
         if evaluation_function is None:
             self.evaluation_function = self.default_eval_function
         else:
@@ -23,7 +23,7 @@ class DeepEvolution:
 
         self.evolution_strategy: ESInterface = evolution_strategy
         self.normalizer: ObsNormalizer = ObsNormalizer(env_factory, n_samples=1000)
-        self.generation: List[PolicyInterface] = [model_factory()]
+        self.generation: List[PolicyInterface] = [policy_factory()]
         # something_callback: function
 
     def default_eval_function(self, policy: PolicyInterface, times=1,) -> Tuple[int, PolicyInterface]:
