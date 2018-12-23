@@ -33,7 +33,7 @@ class BasicStrategy(EvolutionaryStrategy):
 
     def __init__(self, evaluator: Evaluator, policy_factory: Callable, generation_size: int = 1000,
                  n_elites: int = 20,
-                 n_check_top: int = 10, n_check_times: int = 30):
+                 n_check_top: int = 10, n_check_times: int = 30, std=0.02):
         self.n_elites = n_elites
         self.gen_size = generation_size
         self.eval_fn = evaluator
@@ -41,6 +41,7 @@ class BasicStrategy(EvolutionaryStrategy):
         # Params for finding the true elite
         self.n_check_top = n_check_top
         self.n_check_times = n_check_times
+        self.std = std
 
     def _gen_population(self, elites, n_models):
         offspring = []
@@ -50,8 +51,7 @@ class BasicStrategy(EvolutionaryStrategy):
             policy = self.policy_factory()
             policy.load_state_dict(parent_state_dict)
             for tensor in policy.state_dict().values():
-                mutation = torch.randn_like(tensor) * 0.02
-                tensor += mutation
+                tensor += torch.randn_like(tensor) * self.std
             offspring.append(policy)
         return offspring
 
