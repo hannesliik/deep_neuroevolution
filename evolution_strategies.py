@@ -63,7 +63,7 @@ class BasicStrategy(EvolutionaryStrategy):
         elites = [elite[1] for elite in elites]
 
         # Evaluate the top n_check_top elites to
-        elites_checked, _ = self.eval_fn(elites[:self.n_check_top], self.n_check_times)
+        elites_checked = self.eval_fn(elites[:self.n_check_top], self.n_check_times)[0]
         elites_checked = sorted(elites_checked, key=lambda x: x[0], reverse=True)
 
         offspring = self._gen_population(elites, self.gen_size)

@@ -65,8 +65,9 @@ if __name__ == '__main__':
 
 
     def eval_callback(results):
+        results, best_policy, info_dict = results
         rewards = [result[0] for result in results]
-        print(np.mean(rewards), rewards[:10])
+        print(np.mean(rewards), rewards[:10], info_dict["n_frames"])
 
 
     # eval_callback = lambda results: print(np.mean(results), results[:10])
