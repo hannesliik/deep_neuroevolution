@@ -1,12 +1,10 @@
 
 from typing import Tuple, List, Callable
-from multiprocessing import Pool, cpu_count
 
-import numpy as np
 
-from utils import Policy, ObsNormalizer
+from utils import Policy
 from evolution_strategies import EvolutionaryStrategy
-from evaluators import Evaluator, ParallelEnvEvaluator
+from evaluators import Evaluator
 
 
 class GAOptimizer:
@@ -21,7 +19,6 @@ class GAOptimizer:
         self._model_factory = policy_factory
         self.evaluator = evaluator
         self.evolution_strategy: EvolutionaryStrategy = evolution_strategy
-        self.normalizer: ObsNormalizer = ObsNormalizer(env_factory, n_samples=1000)
         self.best_policy = policy_factory()
         self.generation: List[Policy] = [self.best_policy]
         # something_callback: function

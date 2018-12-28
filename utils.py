@@ -12,6 +12,25 @@ class Policy(ABC):
 
     @abstractmethod
     def __call__(self, observation: np.ndarray) -> np.ndarray:
+        """
+        Given an observation, should return an action
+        :param observation: the observation
+        :return: the action/prediction
+        """
+        pass
+
+    def set_up(self):
+        """
+        Stuff to do before evaluating (useful in the parallel evaluator) like move to GPU
+        :return:
+        """
+        pass
+
+    def teardown(self):
+        """
+        Stuff to do after evaluation
+        :return:
+        """
         pass
 
 
@@ -27,7 +46,10 @@ class ObsNormalizer:
         self.means, self.stds = self.gen_statistics(env, n_samples)
 
     def normalize(self, obs: np.ndarray):
-        return (obs - self.means) * (self.stds + ObsNormalizer.EPSILON)
+        return (obs - self.means) / (self.stds + ObsNormalizer.EPSILON)
+
+    def unnormalize(self, obs: np.ndarray):
+        return (obs + self.means) * (self.stds + ObsNormalizer.EPSILON)
 
     @staticmethod
     def gen_statistics(env, n):
@@ -36,7 +58,7 @@ class ObsNormalizer:
         for _ in range(n):
             action = env.action_space.sample()
             obs_dataset.append(obs)
-            obs, reward, done, _ = env.step(action)
+            obs, reward, done = env.step(action)[:3]
             if done:
                 obs = env.reset()
         obs_dataset = np.array(obs_dataset)
