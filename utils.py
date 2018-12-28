@@ -29,6 +29,9 @@ class ObsNormalizer:
     def normalize(self, obs: np.ndarray):
         return (obs - self.means) / (self.stds + ObsNormalizer.EPSILON)
 
+    def unnormalize(self, obs: np.ndarray):
+        return (obs + self.means) * (self.stds + ObsNormalizer.EPSILON)
+
     @staticmethod
     def gen_statistics(env, n):
         obs = env.reset()

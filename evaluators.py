@@ -1,12 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import List, Tuple, Callable
 from multiprocessing import Pool, cpu_count
-import torch
-from gym import Env
 
+from gym import Env
 import numpy as np
 
-from utils import Policy, ObsNormalizer
+from utils import Policy
 
 
 class Evaluator(ABC):
@@ -20,6 +19,10 @@ class Evaluator(ABC):
 
 
 class SequentialEnvEvaluator(Evaluator):
+    """
+    Evaluator that takes environments that implement gym.Env. Makes only one environment and iterates through
+    all the policies sequentially through that environment.
+    """
     def __init__(self, env_factory: Callable):
         self.env: Env = env_factory()
 
@@ -42,7 +45,11 @@ class SequentialEnvEvaluator(Evaluator):
 
 
 class ParallelEnvEvaluator(Evaluator):
-    def __init__(self, env_factory: Callable, times=1, n_processes: int = cpu_count(), device="cpu"):
+    """
+    Gym environment evaluator. Uses a process pool to evaluate policies. A new environment instance is created
+    for each policy.
+    """
+    def __init__(self, env_factory: Callable, times=1, n_processes: int = cpu_count()):
         self.env_factory = env_factory
         self.n_processes = n_processes
         self.device = device
@@ -57,10 +64,13 @@ class ParallelEnvEvaluator(Evaluator):
         results = sorted(results, key=lambda x: x[0], reverse=True)
         return results, results[0][1]
 
-    def _eval_policy(self, policy: Policy, times=1):
-        if self.device == "cuda":
-            policy.cuda()
-            policy.device = "cuda"
+    def _eval_policy(self, policy: Policy, times=1) -> Tuple[int, Policy]:
+        """
+        Function to evaluate one policy
+        :param policy: some function that produces actions for given observations
+        :param times: How many times the policy will be evaluated. Returns the mean reward across runs
+        :return: (int - mean reward across runs, policy - the policy instance)
+        """
         env: Env = self.env_factory()
         rewards = []
         for _ in range(times):
@@ -72,8 +82,5 @@ class ParallelEnvEvaluator(Evaluator):
                 obs, reward, done = env.step(action)[:3]
                 total_reward += reward
             rewards.append(total_reward)
-        if self.device == "cuda":
-            policy.device = "cpu"
-            policy.cpu()
         env.close()
         return int(np.mean(rewards)), policy
