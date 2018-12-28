@@ -64,7 +64,7 @@ class ParallelEnvEvaluator(Evaluator):
         results = sorted(results, key=lambda x: x[0], reverse=True)
         return results, results[0][1]
 
-    def _eval_policy(self, policy: Policy, times=1) -> Tuple[int, Policy]:
+    def _eval_policy(self, policy: Policy, times=1) -> Tuple[float, Policy]:
         """
         Function to evaluate one policy
         :param policy: some function that produces actions for given observations
@@ -83,4 +83,4 @@ class ParallelEnvEvaluator(Evaluator):
                 total_reward += reward
             rewards.append(total_reward)
         env.close()
-        return int(np.mean(rewards)), policy
+        return float(np.mean(rewards)), policy
