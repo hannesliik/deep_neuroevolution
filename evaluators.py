@@ -19,7 +19,7 @@ class Evaluator(ABC):
         pass
 
 
-class EnvEvaluator(Evaluator):
+class SequentialEnvEvaluator(Evaluator):
     def __init__(self, env_factory: Callable):
         self.env: Env = env_factory()
 

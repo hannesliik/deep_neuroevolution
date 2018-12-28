@@ -4,7 +4,7 @@ import gym
 
 gym.logger.set_level(40)
 from evolution_strategies import BasicStrategy
-from evaluators import ParallelEnvEvaluator, EnvEvaluator
+from evaluators import ParallelEnvEvaluator, SequentialEnvEvaluator
 from deep_neuroevolution import GAOptimizer
 from utils import Policy
 
