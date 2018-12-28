@@ -27,7 +27,7 @@ class ObsNormalizer:
         self.means, self.stds = self.gen_statistics(env, n_samples)
 
     def normalize(self, obs: np.ndarray):
-        return (obs - self.means) * (self.stds + ObsNormalizer.EPSILON)
+        return (obs - self.means) / (self.stds + ObsNormalizer.EPSILON)
 
     @staticmethod
     def gen_statistics(env, n):
@@ -36,7 +36,7 @@ class ObsNormalizer:
         for _ in range(n):
             action = env.action_space.sample()
             obs_dataset.append(obs)
-            obs, reward, done, _ = env.step(action)
+            obs, reward, done = env.step(action)[:3]
             if done:
                 obs = env.reset()
         obs_dataset = np.array(obs_dataset)

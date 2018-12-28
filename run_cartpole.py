@@ -9,7 +9,7 @@ gym.logger.set_level(40)
 device = torch.device("cpu")
 import random
 
-def eval_model(model, env, times=1):
+def eval_model(model, env, times=1, render=False):
     #env = gym.make("CartPole-v1")
     rewards = []
     for _ in range(times):
@@ -18,6 +18,8 @@ def eval_model(model, env, times=1):
         total_reward = 0
         while not done:
             obs = torch.from_numpy(obs).float().unsqueeze(0)
+            if render:
+                env.render()
             with torch.no_grad():
                 action = int(torch.distributions.Categorical(model.forward(obs)).sample())
             obs, reward, done, _ = env.step(action)
@@ -79,6 +81,7 @@ for _ in range(200):
     elites_checked = sorted(elites_checked, key=lambda x : x[0], reverse=True)
     offspring = gen_population(elites, 999)
     offspring.append(elites_checked[0][1])
+    eval_model(elites_checked[0][1], env, render=True)
     results = [eval_model(o, env) for o in offspring]
 #print([o.state_dict()["0.bias"] for o in offspring])
 #eval_model(model)

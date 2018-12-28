@@ -22,7 +22,6 @@ class Evaluator(ABC):
 class EnvEvaluator(Evaluator):
     def __init__(self, env_factory: Callable):
         self.env: Env = env_factory()
-        self.normalizer = ObsNormalizer(env_factory)
 
     def __call__(self, policies: List[Policy], times=1) -> Tuple[List[Tuple[float, Policy]], Policy]:
         results: List[Tuple[float, Policy]] = []
@@ -33,9 +32,8 @@ class EnvEvaluator(Evaluator):
                 done = False
                 total_reward = 0
                 while not done:
-                    obs = self.normalizer.normalize(obs)
                     action = policy(obs)
-                    obs, reward, done, _ = self.env.step(action)
+                    obs, reward, done = self.env.step(action)[:3]
                     total_reward += reward
                 rewards.append(total_reward)
             results.append((int(np.mean(rewards)), policy))
@@ -46,7 +44,6 @@ class EnvEvaluator(Evaluator):
 class ParallelEnvEvaluator(Evaluator):
     def __init__(self, env_factory: Callable, times=1, n_processes: int = cpu_count(), device="cpu"):
         self.env_factory = env_factory
-        self.normalizer = ObsNormalizer(env_factory)
         self.n_processes = n_processes
         self.device = device
         self.times = times
@@ -71,9 +68,8 @@ class ParallelEnvEvaluator(Evaluator):
             done = False
             total_reward = 0
             while not done:
-                obs = self.normalizer.normalize(obs)
                 action = policy(obs)
-                obs, reward, done, _ = env.step(action)
+                obs, reward, done = env.step(action)[:3]
                 total_reward += reward
             rewards.append(total_reward)
         if self.device == "cuda":
