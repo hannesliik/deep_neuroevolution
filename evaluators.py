@@ -54,7 +54,6 @@ class ParallelEnvEvaluator(Evaluator):
     def __init__(self, env_factory: Callable, times=1, n_processes: int = cpu_count()):
         self.env_factory = env_factory
         self.n_processes = n_processes
-        self.device = device
         self.times = times
 
     def __call__(self, policies: List[Policy], times=None) -> Tuple[List[Tuple[float, Policy]], Policy]:
