@@ -25,7 +25,7 @@ class GAOptimizer:
 
     def train_generation(self):
         # List[Tuple[float, PolicyInterface]]
-        eval_results, self.best_policy = self.evaluator(self.generation)
+        eval_results, self.best_policy, info = self.evaluator(self.generation)
         if self.eval_callback is not None:
-            self.eval_callback(eval_results)
+            self.eval_callback((eval_results, self.best_policy, info))
         self.generation = self.evolution_strategy(eval_results)
