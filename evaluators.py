@@ -30,6 +30,7 @@ class SequentialEnvEvaluator(Evaluator):
         results: List[Tuple[float, Policy]] = []
         for policy in policies:
             rewards = []
+            policy.set_up()
             for _ in range(times):
                 obs = self.env.reset()
                 done = False
@@ -39,6 +40,7 @@ class SequentialEnvEvaluator(Evaluator):
                     obs, reward, done = self.env.step(action)[:3]
                     total_reward += reward
                 rewards.append(total_reward)
+            policy.teardown()
             results.append((int(np.mean(rewards)), policy))
         results = sorted(results, key=lambda x: x[0], reverse=True)
         return results, results[0][1]
@@ -73,6 +75,7 @@ class ParallelEnvEvaluator(Evaluator):
         """
         env: Env = self.env_factory()
         rewards = []
+        policy.set_up()
         for _ in range(times):
             obs = env.reset()
             done = False
@@ -83,4 +86,5 @@ class ParallelEnvEvaluator(Evaluator):
                 total_reward += reward
             rewards.append(total_reward)
         env.close()
+        policy.teardown()
         return float(np.mean(rewards)), policy

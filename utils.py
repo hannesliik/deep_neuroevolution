@@ -12,6 +12,25 @@ class Policy(ABC):
 
     @abstractmethod
     def __call__(self, observation: np.ndarray) -> np.ndarray:
+        """
+        Given an observation, should return an action
+        :param observation: the observation
+        :return: the action/prediction
+        """
+        pass
+
+    def set_up(self):
+        """
+        Stuff to do before evaluating (useful in the parallel evaluator) like move to GPU
+        :return:
+        """
+        pass
+
+    def teardown(self):
+        """
+        Stuff to do after evaluation
+        :return:
+        """
         pass
 
 
