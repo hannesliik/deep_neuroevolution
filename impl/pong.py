@@ -3,10 +3,10 @@ import torch
 import gym
 
 gym.logger.set_level(40)
-from evolution_strategies import BasicStrategy
-from evaluators import ParallelEnvEvaluator, SequentialEnvEvaluator
-from deep_neuroevolution import GAOptimizer
-from utils import Policy
+from api.evolution_strategies import GaussianMutationStrategy
+from api.evaluators import ParallelEnvEvaluator
+from api.deep_neuroevolution import GAOptimizer
+from api.utils import Policy
 
 
 # Define policy
@@ -87,8 +87,8 @@ if __name__ == '__main__':
     # Create evaluator
     evaluator = ParallelEnvEvaluator(env_factory=env_factory, n_processes=8)
     # evaluator = EnvEvaluator(env_factory=env_factory)
-    evolution_strategy = BasicStrategy(evaluator, policy_factory, generation_size=50, n_elites=10, n_check_top=5,
-                                       n_check_times=2)
+    evolution_strategy = GaussianMutationStrategy(evaluator, policy_factory, generation_size=50, n_elites=10, n_check_top=5,
+                                                  n_check_times=2)
 
 
     def eval_callback(results):
