@@ -60,9 +60,7 @@ if __name__ == '__main__':
 
     # Create evaluator
     evaluator = ParallelEnvEvaluator(env_factory=env_factory)
-    evolution_strategy = GaussianMutationStrategy(policy_factory, size=1000,
-                                                  n_elites=20, parent_selection="probab", std=0.02,
-                                                  evaluator=evaluator, n_check_top=10, n_check_times=30)
+    evolution_strategy = GaussianMutationStrategy(policy_factory, evaluator=evaluator, parent_selection="probab")
 
     env = env_factory()
 
@@ -78,7 +76,7 @@ if __name__ == '__main__':
             action = top_results[0](obs)
             obs, _, done = env.step(action)[:3]
 
-    optimizer = GAOptimizer(env_factory, policy_factory, evolution_strategy, evaluator, eval_callback=eval_callback)
+    optimizer = GAOptimizer(env_factory, policy_factory, evolution_strategy, evaluator)
     for _ in range(20):
         start = time.time()
         optimizer.train_generation()

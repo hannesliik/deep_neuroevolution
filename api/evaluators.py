@@ -36,16 +36,16 @@ class Evaluator(ABC):
     list of tuples (policy, score)
     """
     @abstractmethod
-    def __call__(self, policies: List[Policy]) -> List[Tuple[Policy, Score]]:
+    def __call__(self, policies: List[Policy], times: int = 1) -> List[Tuple[Policy, Score]]:
         pass
 
 
-class EnvEvaluator(Evaluator):
+class EnvEvaluator(Evaluator, ABC):
     """
     Evaluates policies against a gym.Env instance.
     """
 
-    def eval_policy(self, policy: Policy, env: Env, times=1) -> Tuple[Policy, Score]:
+    def _eval_policy(self, policy: Policy, env: Env, times: int = 1) -> Tuple[Policy, Score]:
         """
         Function to evaluate one policy
         :param policy: some function that produces actions for given observations
@@ -80,8 +80,8 @@ class SequentialEnvEvaluator(EnvEvaluator):
     def __init__(self, env_factory: Callable):
         self.env: Env = env_factory()
 
-    def __call__(self, policies: List[Policy], times=1) -> List[Tuple[Policy, Score]]:
-        return [self.eval_policy(policy, self.env, times) for policy in policies]
+    def __call__(self, policies: List[Policy], times: int = 1) -> List[Tuple[Policy, Score]]:
+        return [self._eval_policy(policy, self.env, times) for policy in policies]
 
 
 class ParallelEnvEvaluator(EnvEvaluator):
@@ -89,15 +89,15 @@ class ParallelEnvEvaluator(EnvEvaluator):
     Gym environment evaluator. Uses a process pool to evaluate policies. A new environment instance is created
     for each policy.
     """
-    def __init__(self, env_factory: Callable, times=1, n_processes: int = cpu_count()):
+    def __init__(self, env_factory: Callable, times: int = 1, n_processes: int = cpu_count()):
         self.env_factory = env_factory
         self.n_processes = n_processes
         self.times = times
 
-    def __call__(self, policies: List[Policy], times=None) -> List[Tuple[Policy, Score]]:
+    def __call__(self, policies: List[Policy], times = None) -> List[Tuple[Policy, Score]]:
         if times is None:
             times = self.times
         with Pool(self.n_processes) as p:
-            results = p.starmap(self.eval_policy, [(policy, self.env_factory(), times) for policy in policies])
+            results = p.starmap(self._eval_policy, [(policy, self.env_factory(), times) for policy in policies])
         return results
 

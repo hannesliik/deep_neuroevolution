@@ -9,103 +9,170 @@ from api.evaluators import Evaluator, Score
 from api.utils import Policy
 
 
+# TODO Improve hierarchy
+
+
 class EvoStrategy(ABC):
     """
     Evolution Strategy interface.
-    The strategy should take a list of policies and their rewards, do some mutations
-    or combinations or what not and return a list of new policies as the next generation
+    The strategy should accept a list of policies, evaluate them, perform mutations,
+    and produce the next generation
     """
 
     @abstractmethod
-    def __init__(self, policy_factory: Callable, size: int = 200):
+    def __call__(self, prev_gen: List[Policy]) -> List[Policy]:
         """
-        :param policy_factory: Factory for creating policies
-        :param size: Number of policies to generate
-        """
-        self.policy_factory = policy_factory
-        self.size = size
-
-
-    @abstractmethod
-    def __call__(self, prev_gen: List[Tuple[Policy, Score]]) -> List[Policy]:
-        """
-        Input is a list of tuples (reward, policy)
-        Output is the new generation of policies
-        :param prev_gen: Evaluations of previous generation
-        :return: next generation
+        Produces next generation of policies
+        :param prev_gen: previous generation of policies
+        :return: xext generation of policies
         """
         pass
 
 
-class GaussianMutationStrategy(EvoStrategy):
+class AbsEvoStrategy(EvoStrategy):
+    """
+    Abstract implementation of the EvoStrategy interface with basic common pipeline
+    """
+
+    @abstractmethod
+    def __init__(self, policy_factory: Callable, evaluator: Evaluator, size: int = 200,
+                 n_elites: int = 20):
+        """
+        :param policy_factory: factory for creating policies
+        :param evaluator: evaluator used for estimating policies characteristics
+        :param size: number of policies to generate
+        :param n_elites: number of policies to consider when creating the next generation
+        """
+        self.policy_factory = policy_factory
+        self.evaluator = evaluator
+        self.size = size
+        self.n_elites = n_elites
+
+    def __call__(self, prev_gen: List[Policy]) -> List[Policy]:
+        """
+        :param prev_gen: previous generation of policies
+        :return: xext generation of policies
+        """
+        evaluated = self._evaluate(prev_gen)
+        elites = self._select_elites(evaluated)
+        offspring = self._generate(elites)
+        return offspring
+
+    def _evaluate(self, prev_gen: List[Policy]) -> List[Tuple[Policy, Score]]:
+        """
+        Evaluate scores of the policies
+
+        :param prev_gen: generation of policies to be evaluated
+        :return: pairs of policies and their evaluated scores
+        """
+        return self.evaluator(prev_gen)
+
+    def _select_elites(self, prev_gen: List[Tuple[Policy, Score]]) -> List[Tuple[Policy, Score]]:
+        """
+        Select subset of the previous generation as eligible to be used in producing the next generation
+
+        :param prev_gen: previous generation of policies and their scores
+        :return: list of elites and their scores
+        """
+        return sorted(prev_gen, key=lambda pol_sc: float(pol_sc[1]), reverse=True)[:self.n_elites]
+
+    @abstractmethod
+    def _generate(self, elites: List[Tuple[Policy, Score]]) -> List[Policy]:
+        """
+        Generate next generation based on eligible elites
+
+        :param elites: list of elites and their scores
+        :return: next generation of policies
+        """
+        pass
+
+
+class GaussianMutationStrategy(AbsEvoStrategy):
     """
     Modifies elite members by applying constant Gaussian mutation
     """
 
-
-    """
-    param parent_selection: options: "uniform", "probab"
-    """
-    def __init__(self, policy_factory: Callable, size: int = 200,
-                 n_elites: int = 20, elite_selection="score",
-                 parent_selection="uniform", std=0.02,
-                 evaluator: Evaluator = None, n_check_top: int = 10, n_check_times: int = 30):
+    def __init__(self, policy_factory: Callable, evaluator: Evaluator,
+                 parent_selection: str = "uniform", std=0.02,
+                 size: int = 200, n_elites: int = 20,
+                 n_check_top: int = 10, n_check_times: int = 30):
         """
-        :param n_elites: number of elites to select
-        :param elite_selection: "score" to choose elites by score,
-        "novelty" to perform novelty search
         :param parent_selection: "uniform" to choose parents from elites uniformly,
         "probab" - probabilistically based on rewards
         :param std: Standard deviation of the Gaussian mutation
-        :param evaluator: Evaluator to check for true elite
-        :param n_check_top: Number of elites to consider as true elite
-        :param n_check_times: Number of times to check true elite reward
         """
-        super().__init__(policy_factory, size)
-        self.elite_selection = elite_selection
-        if elite_selection == "novelty":
-            self.policy_archive = []
-        self.n_elites = n_elites
+        super().__init__(policy_factory, evaluator, size, n_elites)
         self.parent_selection = parent_selection
         self.std = std
-        self.evaluator = evaluator
         self.n_check_top = n_check_top
         self.n_check_times = n_check_times
 
-    def __call__(self, prev_gen: List[Tuple[Policy, Score]]) -> List[Policy]:
-        elites = self._select_elites(prev_gen)
-        offspring = self._gen_population(elites, self.size)
-
-        if self.evaluator:
-            # Check for the true elite and retain it within population
-            elites_checked = self.evaluator([elite[0] for elite in elites[:self.n_check_top]], self.n_check_times)
-            elites_checked = sorted(elites_checked, key=lambda x: float(x[1]), reverse=True)
-            offspring.append(elites_checked[0][0])
-
-        return offspring
-
-    def _select_elites(self, prev_gen: List[Tuple[Policy, Score]]):
-        if self.elite_selection == "score":
-            return sorted(prev_gen, key=lambda x: float(x[1]), reverse=True)[:self.n_elites]
-        elif self.elite_selection == "novelty":
-            pass #TODO
-
-    def _gen_population(self, elites, size):
+    def _generate(self, elites: List[Tuple[Policy, Score]]) -> List[Policy]:
         offspring = []
-        elites_p = None
-        for i in range(size):
-            if self.parent_selection == "uniform":
-                parent = elites[np.random.randint(len(elites))][0]
-            elif self.parent_selection == "probab":
-                if elites_p is None:
-                    elites_p = softmax([float(elite[1]) for elite in elites])
-                parent = elites[np.random.choice(len(elites), p=elites_p)][0]
-
-            policy = self.policy_factory()
-            policy.load_state_dict(parent.state_dict())
-            for tensor in policy.state_dict().values():
-                tensor += torch.randn_like(tensor) * self.std
-
-            offspring.append(policy)
+        self.p = None
+        for i in range(self.size):
+            parent = self._pick_parent(elites)
+            child = self._generate_child(parent)
+            offspring.append(child)
+        self.p = None
+        offspring.append(self._find_true_elite(elites))
         return offspring
 
+    def _pick_parent(self, elites: List[Tuple[Policy, Score]]) -> Policy:
+        parent = None
+        if self.parent_selection == "uniform":
+            parent = elites[np.random.randint(len(elites))][0]
+        elif self.parent_selection == "probab":
+            if self.p is None:
+                self.p = softmax([float(elite[1]) for elite in elites])
+            parent = elites[np.random.choice(len(elites), p=self.p)][0]
+        return parent
+
+    def _find_true_elite(self, elites: List[Tuple[Policy, Score]]) -> Policy:
+        elites_checked = self.evaluator([elite[0] for elite in elites[:self.n_check_top]], self.n_check_times)
+        true_elite = sorted(elites_checked, key=lambda x: float(x[1]), reverse=True)[0]
+        print(true_elite[1])
+        return true_elite[0]
+
+    def _generate_child(self, parent: Policy):
+        child = self.policy_factory()
+        child.load_state_dict(parent.state_dict())
+        for tensor in child.state_dict().values():
+            tensor += torch.randn_like(tensor) * self.std
+        return child
+
+
+class NoveltySearchStrategy(GaussianMutationStrategy):
+    """
+    Produces next generation based on the novelty estimated by an arbitrary metric
+    """
+
+    def __init__(self, policy_factory: Callable, evaluator: Evaluator,
+                 novelty_metric: Callable, n_neighbors = 15,
+                 parent_selection: str = "uniform", std=0.02,
+                 size: int = 200, n_elites: int = 20,
+                 n_check_top: int = 10, n_check_times: int = 30):
+        """
+        :param nov_dist: Tuple[Tuple[Policy, Score], Tuple[Policy, Score]] -> float
+        - distance metric of novelty between policies
+        :param n_neighbors: number of neighbors to consider calculating the overall novelty
+        """
+        super().__init__(policy_factory, evaluator, parent_selection, std, size, n_elites, n_check_top, n_check_times)
+        self.nov_dist = novelty_metric
+        self.n_neighbors = n_neighbors
+        self.archive = []
+
+    def _select_elites(self, prev_gen: List[Tuple[Policy, Score]]) -> List[Tuple[Policy, Score]]:
+        neighbors = self.archive + prev_gen
+        # consider more efficient computation method
+        novelty_scores: List[Tuple[Tuple[Policy, Score], float]] = []
+        for i in neighbors:
+            dists_i = []
+            for j in neighbors:
+                dists_i.append(self.nov_dist(i, j))
+            novelty = np.mean(dists_i.sort(reverse=True)[:self.n_neighbors])
+            novelty_scores.append((i, novelty))
+        return [policy for policy, novelty
+                in novelty_scores.sort(key=lambda x: x[1])[:self.n_elites]]
+
+# TODO implement more strategies
