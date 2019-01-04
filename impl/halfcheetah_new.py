@@ -3,12 +3,11 @@ import torch
 import gym
 import time
 
-import os
 #os.environ["OMP_NUM_THREADS"] = "1"
-from evolution_strategies import BasicStrategy
-from evaluators import ParallelEnvEvaluator
-from deep_neuroevolution import GAOptimizer
-from utils import Policy
+from api.evolution_strategies import GaussianMutationStrategy
+from api.evaluators import ParallelEnvEvaluator
+from api.deep_neuroevolution import GAOptimizer
+from api.utils import Policy
 
 # Disable annoying warnings from gym
 gym.logger.set_level(40)
@@ -60,8 +59,8 @@ if __name__ == '__main__':
 
     # Create evaluator
     evaluator = ParallelEnvEvaluator(env_factory=env_factory, times=2, n_processes=16)
-    evolution_strategy = BasicStrategy(evaluator, policy_factory, generation_size=1000, n_elites=20, n_check_top=10,
-                                       n_check_times=30, std=0.02)
+    evolution_strategy = GaussianMutationStrategy(evaluator, policy_factory, generation_size=1000, n_elites=20, n_check_top=10,
+                                                  n_check_times=30, std=0.02)
 
 
     def eval_callback(results):

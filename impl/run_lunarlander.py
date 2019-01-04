@@ -3,12 +3,11 @@ import torch
 import gym
 import time
 
-import os
 #os.environ["OMP_NUM_THREADS"] = "1"
-from evolution_strategies import BasicStrategy
-from evaluators import ParallelEnvEvaluator
-from deep_neuroevolution import GAOptimizer
-from utils import Policy
+from api.evolution_strategies import GaussianMutationStrategy
+from api.evaluators import ParallelEnvEvaluator
+from api.deep_neuroevolution import GAOptimizer
+from api.utils import Policy
 
 # Disable annoying warnings from gym
 gym.logger.set_level(40)
@@ -17,8 +16,8 @@ gym.logger.set_level(40)
 # Define policy
 class LunarLanderTorchPolicy(Policy, torch.nn.Module):
     # Input and output sizes from the HalfCheetah environment
-    N_INPUTS = 9  # env.action_space.shape
-    N_OUTPUTS = 6  # env.observation_space.shape
+    N_INPUTS = 8  # env.action_space.shape
+    N_OUTPUTS = 4  # env.observation_space.shape
 
     def __init__(self):
         super().__init__()
@@ -61,18 +60,23 @@ if __name__ == '__main__':
 
     # Create evaluator
     evaluator = ParallelEnvEvaluator(env_factory=env_factory)
-    evolution_strategy = BasicStrategy(evaluator, policy_factory, generation_size=1000, n_elites=20, n_check_top=10,
-                                       n_check_times=30, std=0.02)
+    evolution_strategy = GaussianMutationStrategy(policy_factory, evaluator=evaluator, parent_selection="probab")
 
+    env = env_factory()
 
     def eval_callback(results):
-        results, best_policy, info_dict = results # Unpack results
-        rewards = [result[0] for result in results]
-        print(info_dict["n_frames"], np.mean(rewards), rewards[:10])
+        results = sorted(results, key=lambda x: float(x[1]), reverse=True)
+        top_results = results[0]
+        print(top_results[1], np.mean([float(x[1]) for x in results]))
 
+        obs = env.reset()
+        done = False
+        while not done:
+            env.render()
+            action = top_results[0](obs)
+            obs, _, done = env.step(action)[:3]
 
-    # eval_callback = lambda results: print(np.mean(results), results[:10])
-    optimizer = GAOptimizer(env_factory, policy_factory, evolution_strategy, evaluator, eval_callback=eval_callback)
+    optimizer = GAOptimizer(env_factory, policy_factory, evolution_strategy, evaluator)
     for _ in range(20):
         start = time.time()
         optimizer.train_generation()
