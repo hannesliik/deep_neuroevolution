@@ -175,4 +175,26 @@ class NoveltySearchStrategy(GaussianMutationStrategy):
         return [policy for policy, novelty
                 in novelty_scores.sort(key=lambda x: x[1])[:self.n_elites]]
 
+
+class LoggingGaussianMutationStrategy(GaussianMutationStrategy):
+    def __init__(self, policy_factory: Callable, evaluator: Evaluator, eval_callback: Callable,
+                 parent_selection: str = "uniform", std=0.02,
+                 size: int = 200, n_elites: int = 20,
+                 n_check_top: int = 10, n_check_times: int = 30):
+        super().__init__(policy_factory, evaluator,
+                 parent_selection, std,
+                 size, n_elites,
+                 n_check_top, n_check_times)
+        self.eval_callback = eval_callback
+
+    def __call__(self, prev_gen: List[Policy]) -> List[Policy]:
+        """
+        :param prev_gen: previous generation of policies
+        :return: xext generation of policies
+        """
+        evaluated = self._evaluate(prev_gen)
+        self.eval_callback(evaluated)
+        elites = self._select_elites(evaluated)
+        offspring = self._generate(elites)
+        return offspring
 # TODO implement more strategies

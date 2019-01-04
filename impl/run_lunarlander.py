@@ -1,12 +1,13 @@
-import numpy as np
-import torch
-import gym
 import time
 
-#os.environ["OMP_NUM_THREADS"] = "1"
-from api.evolution_strategies import GaussianMutationStrategy
-from api.evaluators import ParallelEnvEvaluator
+import gym
+import numpy as np
+import torch
+
 from api.deep_neuroevolution import GAOptimizer
+from api.evaluators import ParallelEnvEvaluator
+# os.environ["OMP_NUM_THREADS"] = "1"
+from api.evolution_strategies import LoggingGaussianMutationStrategy
 from api.utils import Policy
 
 # Disable annoying warnings from gym
@@ -60,15 +61,14 @@ if __name__ == '__main__':
 
     # Create evaluator
     evaluator = ParallelEnvEvaluator(env_factory=env_factory)
-    evolution_strategy = GaussianMutationStrategy(policy_factory, evaluator=evaluator, parent_selection="probab")
 
     env = env_factory()
+
 
     def eval_callback(results):
         results = sorted(results, key=lambda x: float(x[1]), reverse=True)
         top_results = results[0]
         print(top_results[1], np.mean([float(x[1]) for x in results]))
-
         obs = env.reset()
         done = False
         while not done:
@@ -76,8 +76,15 @@ if __name__ == '__main__':
             action = top_results[0](obs)
             obs, _, done = env.step(action)[:3]
 
-    optimizer = GAOptimizer(env_factory, policy_factory, evolution_strategy, evaluator)
-    for _ in range(20):
-        start = time.time()
-        optimizer.train_generation()
-        print("generation time:", time.time() - start)
+    evolution_strategy = LoggingGaussianMutationStrategy(policy_factory, evaluator=evaluator,
+                                                         eval_callback=eval_callback, parent_selection="uniform",
+                                                         std=0.02,
+                                                         size=1000, n_elites=20, n_check_top=10, n_check_times=30
+                                                         )
+
+
+optimizer = GAOptimizer(env_factory, policy_factory, evolution_strategy, evaluator)
+for _ in range(20):
+    start = time.time()
+    optimizer.train_generation()
+    print("generation time:", time.time() - start)
