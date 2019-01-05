@@ -1,7 +1,11 @@
-import gym
 from abc import ABC, abstractmethod
+from typing import Callable, Dict
+
+import gym
+import matplotlib.pyplot as plt
 import numpy as np
-from typing import Callable
+import pandas as pd
+import seaborn as sns
 
 
 class Policy(ABC):
@@ -65,3 +69,9 @@ class ObsNormalizer:
         means = np.mean(obs_dataset, axis=0)
         stds = np.std(obs_dataset, axis=0)
         return means, stds
+
+
+def plot_data(data: Dict):
+    df = pd.DataFrame(data)
+    sns.lineplot(data=df[1:], x="frames", y="score")
+    plt.show()

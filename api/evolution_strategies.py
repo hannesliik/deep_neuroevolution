@@ -3,10 +3,17 @@ from typing import List, Tuple, Callable
 
 import numpy as np
 import torch
-from scipy.special import softmax
 
 from api.evaluators import Evaluator, Score
 from api.utils import Policy
+
+
+# from scipy.special import softmax
+
+
+def softmax(x: np.ndarray) -> np.ndarray:
+    exp = np.exp(x)
+    return exp / (np.sum(exp) + 1e-8)
 
 
 # TODO Improve hierarchy
@@ -24,7 +31,16 @@ class EvoStrategy(ABC):
         """
         Produces next generation of policies
         :param prev_gen: previous generation of policies
-        :return: xext generation of policies
+        :return: next generation of policies
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def state(self) -> dict:
+        """
+        Extra information about the evolution history can be stored here
+        :return:
         """
         pass
 
@@ -47,16 +63,36 @@ class AbsEvoStrategy(EvoStrategy):
         self.evaluator = evaluator
         self.size = size
         self.n_elites = n_elites
+        self._state = {"frames_evaluated": 0, "stats": [], "evaluations": []}
 
     def __call__(self, prev_gen: List[Policy]) -> List[Policy]:
         """
         :param prev_gen: previous generation of policies
-        :return: xext generation of policies
+        :return: next generation of policies
         """
         evaluated = self._evaluate(prev_gen)
+        self._update_stats(evaluated)
         elites = self._select_elites(evaluated)
         offspring = self._generate(elites)
+
         return offspring
+
+    def _update_stats(self, evaluated: List[Tuple[Policy, Score]]):
+        """
+        Takes a list of evaluations and adds the stats to the evolution strategy state
+        :param evaluated:
+        :return:
+        """
+        scores = [float(evaluation[1]) for evaluation in evaluated]
+        reward_mean = np.mean(scores)
+        reward_std = np.std(scores)
+        reward_min = np.min(scores)
+        reward_max = np.max(scores)
+        for score in scores:
+            self.state["evaluations"].append({"frames": self._state["frames_evaluated"], "score": score})
+        self.state["stats"].append({"frames": self._state["frames_evaluated"],
+                                    "mean": reward_mean, "std": reward_std, "min": reward_min, "max": reward_max})
+        # return
 
     def _evaluate(self, prev_gen: List[Policy]) -> List[Tuple[Policy, Score]]:
         """
@@ -65,7 +101,10 @@ class AbsEvoStrategy(EvoStrategy):
         :param prev_gen: generation of policies to be evaluated
         :return: pairs of policies and their evaluated scores
         """
-        return self.evaluator(prev_gen)
+        eval_results = self.evaluator(prev_gen)
+        frames_evaluated = sum([result[1]["n_frames"] for result in eval_results])
+        self._state["frames_evaluated"] += frames_evaluated
+        return eval_results
 
     def _select_elites(self, prev_gen: List[Tuple[Policy, Score]]) -> List[Tuple[Policy, Score]]:
         """
@@ -75,6 +114,10 @@ class AbsEvoStrategy(EvoStrategy):
         :return: list of elites and their scores
         """
         return sorted(prev_gen, key=lambda pol_sc: float(pol_sc[1]), reverse=True)[:self.n_elites]
+
+    @property
+    def state(self):
+        return self._state
 
     @abstractmethod
     def _generate(self, elites: List[Tuple[Policy, Score]]) -> List[Policy]:
@@ -132,6 +175,7 @@ class GaussianMutationStrategy(AbsEvoStrategy):
         elites_checked = self.evaluator([elite[0] for elite in elites[:self.n_check_top]], self.n_check_times)
         true_elite = sorted(elites_checked, key=lambda x: float(x[1]), reverse=True)[0]
         print(true_elite[1])
+        self.state["frames_evaluated"] += sum([elite[1]["n_frames"] for elite in elites])
         return true_elite[0]
 
     def _generate_child(self, parent: Policy):
@@ -148,7 +192,7 @@ class NoveltySearchStrategy(GaussianMutationStrategy):
     """
 
     def __init__(self, policy_factory: Callable, evaluator: Evaluator,
-                 novelty_metric: Callable, n_neighbors = 15,
+                 novelty_metric: Callable, n_neighbors=15,
                  parent_selection: str = "uniform", std=0.02,
                  size: int = 200, n_elites: int = 20,
                  n_check_top: int = 10, n_check_times: int = 30):
@@ -175,26 +219,4 @@ class NoveltySearchStrategy(GaussianMutationStrategy):
         return [policy for policy, novelty
                 in novelty_scores.sort(key=lambda x: x[1])[:self.n_elites]]
 
-
-class LoggingGaussianMutationStrategy(GaussianMutationStrategy):
-    def __init__(self, policy_factory: Callable, evaluator: Evaluator, eval_callback: Callable,
-                 parent_selection: str = "uniform", std=0.02,
-                 size: int = 200, n_elites: int = 20,
-                 n_check_top: int = 10, n_check_times: int = 30):
-        super().__init__(policy_factory, evaluator,
-                 parent_selection, std,
-                 size, n_elites,
-                 n_check_top, n_check_times)
-        self.eval_callback = eval_callback
-
-    def __call__(self, prev_gen: List[Policy]) -> List[Policy]:
-        """
-        :param prev_gen: previous generation of policies
-        :return: xext generation of policies
-        """
-        evaluated = self._evaluate(prev_gen)
-        self.eval_callback(evaluated)
-        elites = self._select_elites(evaluated)
-        offspring = self._generate(elites)
-        return offspring
 # TODO implement more strategies

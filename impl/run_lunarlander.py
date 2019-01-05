@@ -7,7 +7,7 @@ import torch
 from api.deep_neuroevolution import GAOptimizer
 from api.evaluators import ParallelEnvEvaluator
 # os.environ["OMP_NUM_THREADS"] = "1"
-from api.evolution_strategies import LoggingGaussianMutationStrategy
+from api.evolution_strategies import GaussianMutationStrategy
 from api.utils import Policy
 
 # Disable annoying warnings from gym
@@ -76,8 +76,8 @@ if __name__ == '__main__':
             action = top_results[0](obs)
             obs, _, done = env.step(action)[:3]
 
-    evolution_strategy = LoggingGaussianMutationStrategy(policy_factory, evaluator=evaluator,
-                                                         eval_callback=eval_callback, parent_selection="uniform",
+    evolution_strategy = GaussianMutationStrategy(policy_factory, evaluator=evaluator,
+                                                        parent_selection="uniform",
                                                          std=0.02,
                                                          size=1000, n_elites=20, n_check_top=10, n_check_times=30
                                                          )
@@ -87,4 +87,5 @@ optimizer = GAOptimizer(env_factory, policy_factory, evolution_strategy, evaluat
 for _ in range(20):
     start = time.time()
     optimizer.train_generation()
+    print(evolution_strategy.state)
     print("generation time:", time.time() - start)
