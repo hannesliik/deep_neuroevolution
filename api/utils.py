@@ -73,5 +73,5 @@ class ObsNormalizer:
 
 def plot_data(data: Dict):
     df = pd.DataFrame(data)
-    sns.lineplot(data=df[1:], x="frames", y="score")
+    sns.lineplot(data=df[1:], x="frames", y="score", ci="sd")
     plt.show()

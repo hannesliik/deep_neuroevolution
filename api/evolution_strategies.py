@@ -11,9 +11,9 @@ from api.utils import Policy
 # from scipy.special import softmax
 
 
-def softmax(x: np.ndarray) -> np.ndarray:
+def softmax(x) -> np.ndarray:
     exp = np.exp(x)
-    return exp / (np.sum(exp) + 1e-8)
+    return exp / np.sum(exp)
 
 
 # TODO Improve hierarchy
@@ -52,18 +52,20 @@ class AbsEvoStrategy(EvoStrategy):
 
     @abstractmethod
     def __init__(self, policy_factory: Callable, evaluator: Evaluator, size: int = 200,
-                 n_elites: int = 20):
+                 n_elites: int = 20, params: dict = None):
         """
         :param policy_factory: factory for creating policies
         :param evaluator: evaluator used for estimating policies characteristics
         :param size: number of policies to generate
         :param n_elites: number of policies to consider when creating the next generation
+        :param params: parameters of the experiment
         """
+        self.exp_params = params
         self.policy_factory = policy_factory
         self.evaluator = evaluator
         self.size = size
         self.n_elites = n_elites
-        self._state = {"frames_evaluated": 0, "stats": [], "evaluations": []}
+        self._state = {"params": params, "frames_evaluated": 0, "stats": [], "evaluations": []}
 
     def __call__(self, prev_gen: List[Policy]) -> List[Policy]:
         """
@@ -77,11 +79,10 @@ class AbsEvoStrategy(EvoStrategy):
 
         return offspring
 
-    def _update_stats(self, evaluated: List[Tuple[Policy, Score]]):
+    def _update_stats(self, evaluated: List[Tuple[Policy, Score]]) -> None:
         """
         Takes a list of evaluations and adds the stats to the evolution strategy state
         :param evaluated:
-        :return:
         """
         scores = [float(evaluation[1]) for evaluation in evaluated]
         reward_mean = np.mean(scores)
@@ -144,7 +145,9 @@ class GaussianMutationStrategy(AbsEvoStrategy):
         "probab" - probabilistically based on rewards
         :param std: Standard deviation of the Gaussian mutation
         """
-        super().__init__(policy_factory, evaluator, size, n_elites)
+        params = {"parent_selection": parent_selection, "std": std, "size": size,
+                  "n_elites": n_elites, "n_check_top": n_check_top, n_check_times: n_check_times}
+        super().__init__(policy_factory, evaluator, size, n_elites, params=params)
         self.parent_selection = parent_selection
         self.std = std
         self.n_check_top = n_check_top
