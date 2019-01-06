@@ -38,6 +38,15 @@ class EvoStrategy(ABC):
 
     @property
     @abstractmethod
+    def best_policy(self) -> Policy:
+        """
+        Returns the current best policy
+        :return:
+        """
+        pass
+
+    @property
+    @abstractmethod
     def state(self) -> dict:
         """
         Extra information about the evolution history can be stored here
@@ -68,6 +77,7 @@ class AbsEvoStrategy(EvoStrategy):
         self.n_elites = n_elites
         self.start_time = -1
         self._state = {"params": params, "frames_evaluated": 0, "stats": [], "evaluations": []}
+        self._best_policy: Policy = None
 
     def __call__(self, prev_gen: List[Policy]) -> List[Policy]:
         """
@@ -80,8 +90,12 @@ class AbsEvoStrategy(EvoStrategy):
         self._update_stats(evaluated)
         elites = self._select_elites(evaluated)
         offspring = self._generate(elites)
-
+        self._best_policy = elites[0][0]
         return offspring
+
+    @property
+    def best_policy(self):
+        return self._best_policy
 
     def _update_stats(self, evaluated: List[Tuple[Policy, Score]]) -> None:
         """
@@ -152,7 +166,8 @@ class GaussianMutationStrategy(AbsEvoStrategy):
         :param std: Standard deviation of the Gaussian mutation
         :param decay: std decay - every iteration the std is multiplied by the value. The "annealing" parameter.
         """
-        params = {"decay": decay, "strategy": "GaussianMutationStrategy", "parent_selection": parent_selection, "std": std, "size": size,
+        params = {"decay": decay, "strategy": "GaussianMutationStrategy", "parent_selection": parent_selection,
+                  "std": std, "size": size,
                   "n_elites": n_elites, "n_check_top": n_check_top, n_check_times: n_check_times}
         super().__init__(policy_factory, evaluator, size, n_elites, params=params)
         self.parent_selection = parent_selection
@@ -174,7 +189,9 @@ class GaussianMutationStrategy(AbsEvoStrategy):
             child = self._generate_child(parent)
             offspring.append(child)
         self.p = None
-        offspring.append(self._find_true_elite(elites))
+        true_elite = self._find_true_elite(elites)
+        self._best_policy = true_elite
+        offspring.append(true_elite)
         return offspring
 
     def _pick_parent(self, elites: List[Tuple[Policy, Score]]) -> Policy:

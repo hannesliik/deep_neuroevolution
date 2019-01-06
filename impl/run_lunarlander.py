@@ -1,7 +1,12 @@
+import json
+import os
 import time
 
 import gym
+import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import seaborn as sns
 import torch
 
 from api.deep_neuroevolution import GAOptimizer
@@ -15,7 +20,6 @@ gym.logger.set_level(40)
 
 # Define policy
 class LunarLanderTorchPolicy(Policy, torch.nn.Module):
-    # Input and output sizes from the HalfCheetah environment
     N_INPUTS = 8  # env.action_space.shape
     N_OUTPUTS = 4  # env.observation_space.shape
 
@@ -47,7 +51,10 @@ class LunarLanderTorchPolicy(Policy, torch.nn.Module):
 def env_factory() -> gym.Env:
     return gym.make("LunarLander-v2")
 
+
 obs_normalizer = ObsNormalizer(env_factory, n_samples=2000)
+
+
 # Create policy factory
 def policy_factory() -> Policy:
     policy = LunarLanderTorchPolicy(obs_normalizer)
@@ -65,52 +72,34 @@ if __name__ == '__main__':
 
     env = env_factory()
 
-
-    def eval_callback(results):
-        results = sorted(results, key=lambda x: float(x[1]), reverse=True)
-        top_results = results[0]
-        print(top_results[1], np.mean([float(x[1]) for x in results]))
-        obs = env.reset()
-        done = False
-        while not done:
-            env.render()
-            action = top_results[0](obs)
-            obs, _, done = env.step(action)[:3]
-
     evolution_strategy = GaussianMutationStrategy(policy_factory, evaluator=evaluator,
-                                                        parent_selection="uniform",
-                                                         std=0.1,
-                                                         size=1000, n_elites=20, n_check_top=10, n_check_times=30,
-                                                         decay=0.97)
+                                                  parent_selection="uniform",
+                                                  std=0.1,
+                                                  size=1000, n_elites=20, n_check_top=10, n_check_times=30,
+                                                  decay=0.97)
 
+    optimizer = GAOptimizer(env_factory, policy_factory, evolution_strategy, evaluator)
 
-optimizer = GAOptimizer(env_factory, policy_factory, evolution_strategy, evaluator)
-import matplotlib.pyplot as plt
-import seaborn as sns
-import pandas as pd
-import os
-import json
+    experiment_name = time.strftime("%Y%m%d_%H%M%S") + "_lunar_lander"
+    if not os.path.exists("data"):
+        os.makedirs("data/")
+    if not os.path.exists("data/" + experiment_name):
+        os.makedirs("data/" + experiment_name)
+    prefix = "data/" + experiment_name + "/"
 
-experiment_name = time.strftime("%Y%m%d_%H%M%S") + "_lunar_lander"
-if not os.path.exists("data"):
-    os.makedirs("data/")
-if not os.path.exists("data/" + experiment_name):
-    os.makedirs("data/" + experiment_name)
-prefix = "data/" + experiment_name + "/"
-
-with open(prefix + "params.json", "w") as fp:
+    with open(prefix + "params.json", "w") as fp:
         json.dump(evolution_strategy.state["params"], fp)
 
-for i in range(50):
-    start = time.time()
-    optimizer.train_generation()
-    #print(evolution_strategy.state)
-    print("generation time:", time.time() - start)
-    data = evolution_strategy.state["evaluations"]
-    df = pd.DataFrame(data)
-    sns.lineplot(data=df, x="time", y="score", ci="sd")
-    #plt.show()
-    plt.savefig(prefix + f"plot_{i}.png")
-    df.to_csv(prefix + "plot.csv")
-    #plot_data(evolution_strategy.state["evaluations"])
-
+    for i in range(50):
+        start = time.time()
+        optimizer.train_generation()
+        # print(evolution_strategy.state)
+        print("generation time:", time.time() - start)
+        # Save model
+        torch.save(evolution_strategy.best_policy.state_dict(), prefix + "model_state_dict.pth")
+        # Generate plot
+        data = evolution_strategy.state["evaluations"]
+        df = pd.DataFrame(data)
+        sns.lineplot(data=df, x="time", y="score", ci="sd")
+        plt.savefig(prefix + f"plot_{i}.png")
+        df.to_csv(prefix + "plot.csv")
