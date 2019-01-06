@@ -1,8 +1,8 @@
 
 from typing import List, Callable
 
-from api.utils import Policy
 from api.evolution_strategies import EvoStrategy
+from api.utils import Policy
 
 
 class GAOptimizer:
@@ -16,7 +16,7 @@ class GAOptimizer:
         self._model_factory = policy_factory
         self.evolution_strategy: EvoStrategy = evolution_strategy
         self.best_policy = policy_factory()
-        self.generation: List[Policy] = [self.best_policy]
+        self.generation: List[Policy] = [policy_factory() for i in range(evolution_strategy.size)]
 
     def train_generation(self):
         # List[Tuple[float, PolicyInterface]]

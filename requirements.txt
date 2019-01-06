@@ -1,3 +1,6 @@
+matplotlib
+pandas
+seaborn
 numpy
 gym>=0.10.5
 torch>=1.0.0

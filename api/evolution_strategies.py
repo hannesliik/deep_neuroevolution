@@ -1,12 +1,20 @@
+import time
 from abc import ABC, abstractmethod
 from typing import List, Tuple, Callable
 
 import numpy as np
 import torch
-from scipy.special import softmax
 
 from api.evaluators import Evaluator, Score
 from api.utils import Policy
+
+
+# from scipy.special import softmax
+
+
+def softmax(x) -> np.ndarray:
+    exp = np.exp(x)
+    return exp / np.sum(exp)
 
 
 # TODO Improve hierarchy
@@ -24,7 +32,16 @@ class EvoStrategy(ABC):
         """
         Produces next generation of policies
         :param prev_gen: previous generation of policies
-        :return: xext generation of policies
+        :return: next generation of policies
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def state(self) -> dict:
+        """
+        Extra information about the evolution history can be stored here
+        :return:
         """
         pass
 
@@ -36,27 +53,53 @@ class AbsEvoStrategy(EvoStrategy):
 
     @abstractmethod
     def __init__(self, policy_factory: Callable, evaluator: Evaluator, size: int = 200,
-                 n_elites: int = 20):
+                 n_elites: int = 20, params: dict = None):
         """
         :param policy_factory: factory for creating policies
         :param evaluator: evaluator used for estimating policies characteristics
         :param size: number of policies to generate
         :param n_elites: number of policies to consider when creating the next generation
+        :param params: parameters of the experiment
         """
+        self.exp_params = params
         self.policy_factory = policy_factory
         self.evaluator = evaluator
         self.size = size
         self.n_elites = n_elites
+        self.start_time = -1
+        self._state = {"params": params, "frames_evaluated": 0, "stats": [], "evaluations": []}
 
     def __call__(self, prev_gen: List[Policy]) -> List[Policy]:
         """
         :param prev_gen: previous generation of policies
-        :return: xext generation of policies
+        :return: next generation of policies
         """
+        if self.start_time == -1:
+            self.start_time = time.time()
         evaluated = self._evaluate(prev_gen)
+        self._update_stats(evaluated)
         elites = self._select_elites(evaluated)
         offspring = self._generate(elites)
+
         return offspring
+
+    def _update_stats(self, evaluated: List[Tuple[Policy, Score]]) -> None:
+        """
+        Takes a list of evaluations and adds the stats to the evolution strategy state
+        :param evaluated:
+        """
+        scores = [float(evaluation[1]) for evaluation in evaluated]
+        reward_mean = np.mean(scores)
+        reward_std = np.std(scores)
+        reward_min = np.min(scores)
+        reward_max = np.max(scores)
+        timestamp = time.time() - self.start_time
+        for score in scores:
+            self.state["evaluations"].append(
+                {"frames": self._state["frames_evaluated"], "time": timestamp, "score": score})
+        self.state["stats"].append({"frames": self._state["frames_evaluated"], "time": timestamp,
+                                    "mean": reward_mean, "std": reward_std, "min": reward_min, "max": reward_max})
+        # return
 
     def _evaluate(self, prev_gen: List[Policy]) -> List[Tuple[Policy, Score]]:
         """
@@ -65,7 +108,10 @@ class AbsEvoStrategy(EvoStrategy):
         :param prev_gen: generation of policies to be evaluated
         :return: pairs of policies and their evaluated scores
         """
-        return self.evaluator(prev_gen)
+        eval_results = self.evaluator(prev_gen)
+        frames_evaluated = sum([result[1]["n_frames"] for result in eval_results])
+        self._state["frames_evaluated"] += frames_evaluated
+        return eval_results
 
     def _select_elites(self, prev_gen: List[Tuple[Policy, Score]]) -> List[Tuple[Policy, Score]]:
         """
@@ -75,6 +121,10 @@ class AbsEvoStrategy(EvoStrategy):
         :return: list of elites and their scores
         """
         return sorted(prev_gen, key=lambda pol_sc: float(pol_sc[1]), reverse=True)[:self.n_elites]
+
+    @property
+    def state(self):
+        return self._state
 
     @abstractmethod
     def _generate(self, elites: List[Tuple[Policy, Score]]) -> List[Policy]:
@@ -95,17 +145,26 @@ class GaussianMutationStrategy(AbsEvoStrategy):
     def __init__(self, policy_factory: Callable, evaluator: Evaluator,
                  parent_selection: str = "uniform", std=0.02,
                  size: int = 200, n_elites: int = 20,
-                 n_check_top: int = 10, n_check_times: int = 30):
+                 n_check_top: int = 10, n_check_times: int = 30, decay: float = 1.):
         """
         :param parent_selection: "uniform" to choose parents from elites uniformly,
         "probab" - probabilistically based on rewards
         :param std: Standard deviation of the Gaussian mutation
+        :param decay: std decay - every iteration the std is multiplied by the value. The "annealing" parameter.
         """
-        super().__init__(policy_factory, evaluator, size, n_elites)
+        params = {"decay": decay, "strategy": "GaussianMutationStrategy", "parent_selection": parent_selection, "std": std, "size": size,
+                  "n_elites": n_elites, "n_check_top": n_check_top, n_check_times: n_check_times}
+        super().__init__(policy_factory, evaluator, size, n_elites, params=params)
         self.parent_selection = parent_selection
         self.std = std
         self.n_check_top = n_check_top
         self.n_check_times = n_check_times
+        self.decay = decay
+
+    def __call__(self, *args, **kwargs):
+        generation = super().__call__(*args, **kwargs)
+        self.std *= self.decay
+        return generation
 
     def _generate(self, elites: List[Tuple[Policy, Score]]) -> List[Policy]:
         offspring = []
@@ -132,6 +191,7 @@ class GaussianMutationStrategy(AbsEvoStrategy):
         elites_checked = self.evaluator([elite[0] for elite in elites[:self.n_check_top]], self.n_check_times)
         true_elite = sorted(elites_checked, key=lambda x: float(x[1]), reverse=True)[0]
         print(true_elite[1])
+        self.state["frames_evaluated"] += sum([elite[1]["n_frames"] for elite in elites])
         return true_elite[0]
 
     def _generate_child(self, parent: Policy):
@@ -148,7 +208,7 @@ class NoveltySearchStrategy(GaussianMutationStrategy):
     """
 
     def __init__(self, policy_factory: Callable, evaluator: Evaluator,
-                 novelty_metric: Callable, n_neighbors = 15,
+                 novelty_metric: Callable, n_neighbors=15,
                  parent_selection: str = "uniform", std=0.02,
                  size: int = 200, n_elites: int = 20,
                  n_check_top: int = 10, n_check_times: int = 30):

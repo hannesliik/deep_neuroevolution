@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import Dict, List, Tuple, Callable
 from multiprocessing import Pool, cpu_count
+from typing import List, Tuple, Callable
 
-from gym import Env
 import numpy as np
+from gym import Env
 
 from api.utils import Policy
 
@@ -51,7 +51,7 @@ class EnvEvaluator(Evaluator, ABC):
         :param policy: some function that produces actions for given observations
         :param env: Environment for evaluation
         :param times: How many times the policy will be evaluated. Returns the mean reward across runs
-        :return: (policy - the policy instance, float- mean reward across runs, info - dictionary of auxiliary info)
+        :return: (policy - the policy instance, Score - mean reward across runs and a dictionary of auxiliary info)
         """
         rewards = []
         policy.set_up()
