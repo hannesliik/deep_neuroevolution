@@ -88,7 +88,20 @@ optimizer = GAOptimizer(env_factory, policy_factory, evolution_strategy, evaluat
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
-for _ in range(50):
+import os
+import json
+
+experiment_name = time.strftime("%Y%m%d_%H%M%S") + "_lunar_lander"
+if not os.path.exists("data"):
+    os.makedirs("data/")
+if not os.path.exists("data/" + experiment_name):
+    os.makedirs("data/" + experiment_name)
+prefix = "data/" + experiment_name + "/"
+
+with open(prefix + "params.json", "w") as fp:
+        json.dump(evolution_strategy.state["params"], fp)
+
+for i in range(50):
     start = time.time()
     optimizer.train_generation()
     #print(evolution_strategy.state)
@@ -96,7 +109,8 @@ for _ in range(50):
     data = evolution_strategy.state["evaluations"]
     df = pd.DataFrame(data)
     sns.lineplot(data=df, x="time", y="score", ci="sd")
-
-    plt.show()
+    #plt.show()
+    plt.savefig(prefix + f"plot_{i}.png")
+    df.to_csv(prefix + "plot.csv")
     #plot_data(evolution_strategy.state["evaluations"])
 
