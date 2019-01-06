@@ -7,7 +7,7 @@ import torch
 from api.deep_neuroevolution import GAOptimizer
 from api.evaluators import ParallelEnvEvaluator
 from api.evolution_strategies import GaussianMutationStrategy
-from api.utils import Policy, plot_data, ObsNormalizer
+from api.utils import Policy, ObsNormalizer
 
 # Disable annoying warnings from gym
 gym.logger.set_level(40)
@@ -47,7 +47,7 @@ class LunarLanderTorchPolicy(Policy, torch.nn.Module):
 def env_factory() -> gym.Env:
     return gym.make("LunarLander-v2")
 
-obs_normalizer = ObsNormalizer(env_factory)
+obs_normalizer = ObsNormalizer(env_factory, n_samples=2000)
 # Create policy factory
 def policy_factory() -> Policy:
     policy = LunarLanderTorchPolicy(obs_normalizer)
@@ -80,15 +80,23 @@ if __name__ == '__main__':
     evolution_strategy = GaussianMutationStrategy(policy_factory, evaluator=evaluator,
                                                         parent_selection="uniform",
                                                          std=0.1,
-                                                         size=1000, n_elites=20, n_check_top=10, n_check_times=30
-                                                         )
+                                                         size=1000, n_elites=20, n_check_top=10, n_check_times=30,
+                                                         decay=0.97)
 
 
 optimizer = GAOptimizer(env_factory, policy_factory, evolution_strategy, evaluator)
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
 for _ in range(50):
     start = time.time()
     optimizer.train_generation()
     #print(evolution_strategy.state)
     print("generation time:", time.time() - start)
-    plot_data(evolution_strategy.state["evaluations"])
+    data = evolution_strategy.state["evaluations"]
+    df = pd.DataFrame(data)
+    sns.lineplot(data=df, x="time", y="score", ci="sd")
+
+    plt.show()
+    #plot_data(evolution_strategy.state["evaluations"])
 
