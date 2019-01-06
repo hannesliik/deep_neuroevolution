@@ -2,5 +2,6 @@ matplotlib
 pandas
 seaborn
 numpy
+box2d-py
 gym>=0.10.5
 torch>=1.0.0
