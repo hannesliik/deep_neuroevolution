@@ -18,7 +18,6 @@ if not args.c:
         print(dir[0])
         df = pd.read_csv(os.path.join(dir[0], "plot.csv"))
         sns.lineplot(data=df, x="frames", y="score", ci="sd")
-    plt.show()
 else:
     df = None
     for dir in list(dirs)[1:]:
@@ -28,7 +27,7 @@ else:
         else:
             df = pd.concat((df, pd.read_csv(os.path.join(dir[0], "plot.csv"))))
     sns.lineplot(data=df, x="frames", y="score", ci="sd")
-    if args.save:
-        plt.imsave("plot.png")
-    else:
-        plt.show()
+if args.save:
+    plt.imsave("plot.png")
+else:
+    plt.show()
