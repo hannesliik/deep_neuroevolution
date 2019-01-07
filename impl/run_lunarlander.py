@@ -13,7 +13,7 @@ import torch
 from api.deep_neuroevolution import GAOptimizer
 from api.evaluators import ParallelEnvEvaluator
 from api.evolution_strategies import GaussianMutationStrategy
-from api.utils import Policy, ObsNormalizer
+from api.utils import Policy
 
 # Disable annoying warnings from gym
 gym.logger.set_level(40)
@@ -24,9 +24,9 @@ class LunarLanderTorchPolicy(Policy, torch.nn.Module):
     N_INPUTS = 8  # env.action_space.shape
     N_OUTPUTS = 4  # env.observation_space.shape
 
-    def __init__(self, obs_normalizer: ObsNormalizer):
+    def __init__(self):
         super().__init__()
-        self.obs_normalizer = obs_normalizer
+        #self.obs_normalizer = obs_normalizer
         self.net = torch.nn.Sequential(
             torch.nn.Linear(LunarLanderTorchPolicy.N_INPUTS, 64),
             torch.nn.Tanh(),
@@ -42,7 +42,7 @@ class LunarLanderTorchPolicy(Policy, torch.nn.Module):
 
     def __call__(self, obs: np.ndarray) -> np.ndarray:
         # Observation to torch tensor, add empty batch dimension
-        obs = self.obs_normalizer.normalize(obs)
+        #obs = self.obs_normalizer.normalize(obs)
         obs = torch.from_numpy(obs).float().unsqueeze(0)
         action = self.net.forward(obs)
         return torch.argmax(action, dim=1).detach().numpy()[0]  # Back to numpy array and return
@@ -53,12 +53,12 @@ def env_factory() -> gym.Env:
     return gym.make("LunarLander-v2")
 
 
-obs_normalizer = ObsNormalizer(env_factory, n_samples=2000)
+#obs_normalizer = ObsNormalizer(env_factory, n_samples=2000)
 
 
 # Create policy factory
 def policy_factory() -> Policy:
-    policy = LunarLanderTorchPolicy(obs_normalizer)
+    policy = LunarLanderTorchPolicy()
     # Tell torch that we will not calculate gradients.
     # Up to ~10% speedup and maybe takes less memory
     for param in policy.parameters():
