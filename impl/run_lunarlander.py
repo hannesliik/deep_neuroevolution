@@ -76,6 +76,7 @@ if __name__ == '__main__':
     parser.add_argument("-d", "--decay", type=float, default=1)
     parser.add_argument("-std", type=float, default=0.1)
     parser.add_argument("-i", "--iterations", type=int, default=50)
+    parser.add_argument("-ps", "--parent_selection", type=str, choices=['uniform', 'probab'])
     parser.add_argument("-t", "--times", type=int, default=1,
                         help="The average of t runs is the evaluation score of a policy")
 
@@ -87,12 +88,12 @@ if __name__ == '__main__':
     assert args["decay"] > 0
 
     # Create evaluator
-    evaluator = ParallelEnvEvaluator(env_factory=env_factory, times=3)
+    evaluator = ParallelEnvEvaluator(env_factory=env_factory, times=args["times"])
 
     env = env_factory()
 
     evolution_strategy = GaussianMutationStrategy(policy_factory, evaluator=evaluator,
-                                                  parent_selection="uniform",
+                                                  parent_selection=args["parent_selection"],
                                                   std=args["std"],
                                                   size=args["gen_size"], n_elites=args["elites"],
                                                   n_check_top=args["check_n"], n_check_times=args["check_times"],
@@ -108,7 +109,8 @@ if __name__ == '__main__':
     prefix = "data/" + experiment_name + "/"
 
     with open(prefix + "params.json", "w") as fp:
-        json.dump(evolution_strategy.state["params"], fp)
+        #json.dump(evolution_strategy.state["params"], fp)
+        json.dump(args, fp)
 
     for i in range(50):
         start = time.time()
