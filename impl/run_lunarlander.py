@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import time
@@ -66,6 +67,24 @@ def policy_factory() -> Policy:
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("exp_name", type=str)
+    parser.add_argument("-g", "--gen_size", type=int, default=200)
+    parser.add_argument("-e", "--elites", type=int, default=20)
+    parser.add_argument("-cn", "--check_n", type=int, default=10)
+    parser.add_argument("-ct", "--check_times", type=int, default=30)
+    parser.add_argument("-d", "--decay", type=float, default=1)
+    parser.add_argument("-std", type=float, default=0.1)
+    parser.add_argument("-i", "--iterations", type=int, default=50)
+    parser.add_argument("-t", "--times", type=int, default=1,
+                        help="The average of t runs is the evaluation score of a policy")
+
+    args = parser.parse_args()
+    args = vars(args)
+    assert args["check_n"] <= args["elites"]
+    assert args["gen_size"] > args["elites"]
+    assert args["times"] >= 1
+    assert args["decay"] > 0
 
     # Create evaluator
     evaluator = ParallelEnvEvaluator(env_factory=env_factory, times=3)
@@ -74,13 +93,14 @@ if __name__ == '__main__':
 
     evolution_strategy = GaussianMutationStrategy(policy_factory, evaluator=evaluator,
                                                   parent_selection="uniform",
-                                                  std=0.1,
-                                                  size=1000, n_elites=20, n_check_top=10, n_check_times=30,
-                                                  decay=0.97)
+                                                  std=args["std"],
+                                                  size=args["gen_size"], n_elites=args["elites"],
+                                                  n_check_top=args["check_n"], n_check_times=args["check_times"],
+                                                  decay=args["decay"])
 
     optimizer = GAOptimizer(env_factory, policy_factory, evolution_strategy, evaluator)
 
-    experiment_name = time.strftime("%Y%m%d_%H%M%S") + "_lunar_lander"
+    experiment_name = args["exp_name"] + "_" + time.strftime("%Y%m%d_%H%M%S") + "_lunar_lander"
     if not os.path.exists("data"):
         os.makedirs("data/")
     if not os.path.exists("data/" + experiment_name):
