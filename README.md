@@ -2,7 +2,8 @@
 Using GA to fit neural network parameters in RL setting.
 ### Installation
 git clone https://github.com/hannesliik/deep_neuroevolution.git
-pip install -e .
+
+`pip install -e .`
 ## Dependencies
 ### PyTorch
 Follow instructions from https://pytorch.org/get-started/locally/
