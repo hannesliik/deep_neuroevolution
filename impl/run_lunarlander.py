@@ -76,7 +76,7 @@ if __name__ == '__main__':
     parser.add_argument("-d", "--decay", type=float, default=1)
     parser.add_argument("-std", type=float, default=0.1)
     parser.add_argument("-i", "--iterations", type=int, default=50)
-    parser.add_argument("-ps", "--parent_selection", type=str, choices=['uniform', 'probab'])
+    parser.add_argument("-ps", "--parent_selection", type=str, choices=['uniform', 'probab'], default='uniform')
     parser.add_argument("-t", "--times", type=int, default=1,
                         help="The average of t runs is the evaluation score of a policy")
 
