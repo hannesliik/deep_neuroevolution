@@ -1,7 +1,7 @@
 # deep_neuroevolution
 Using GA to fit neural network parameters in RL setting.
 ### Installation
-git clone https://github.com/hannesliik/deep_neuroevolution.git
+`git clone https://github.com/hannesliik/deep_neuroevolution.git`
 
 `pip install -e .`
 ## Dependencies
