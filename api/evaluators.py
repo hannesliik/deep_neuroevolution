@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
-from multiprocessing import Pool, cpu_count
 from typing import List, Tuple, Callable
 
 import numpy as np
 from gym import Env
+from torch.multiprocessing import Pool, cpu_count
 
 from api.utils import Policy
 
@@ -67,6 +67,8 @@ class EnvEvaluator(Evaluator, ABC):
                 total_reward += reward
             rewards.append(total_reward)
         env.close()
+        del env
+
         policy.teardown()
         score = Score(np.mean(rewards), n_frames=n_frames, last_obs=obs)
         return policy, score
