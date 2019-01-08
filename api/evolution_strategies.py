@@ -1,6 +1,6 @@
 import time
 from abc import ABC, abstractmethod
-from typing import List, Tuple, Callable
+from typing import List, Tuple, Callable, Optional
 
 import numpy as np
 import torch
@@ -79,7 +79,7 @@ class AbsEvoStrategy(EvoStrategy):
         self._state = {"params": params, "frames_evaluated": 0, "stats": [], "evaluations": []}
         self._best_policy: Policy = None
 
-    def __call__(self, prev_gen: List[Policy]) -> List[Policy]:
+    def __call__(self, prev_gen: List[Policy], gen_number: Optional[int] = None) -> List[Policy]:
         """
         :param prev_gen: previous generation of policies
         :return: next generation of policies
@@ -87,7 +87,7 @@ class AbsEvoStrategy(EvoStrategy):
         if self.start_time == -1:
             self.start_time = time.time()
         evaluated = self._evaluate(prev_gen)
-        self._update_stats(evaluated)
+        self._update_stats(evaluated, gen_number)
         elites = self._select_elites(evaluated)
         offspring = self._generate(elites)
         self._best_policy = elites[0][0]
@@ -97,7 +97,7 @@ class AbsEvoStrategy(EvoStrategy):
     def best_policy(self):
         return self._best_policy
 
-    def _update_stats(self, evaluated: List[Tuple[Policy, Score]]) -> None:
+    def _update_stats(self, evaluated: List[Tuple[Policy, Score]], gen_number: Optional[int]) -> None:
         """
         Takes a list of evaluations and adds the stats to the evolution strategy state
         :param evaluated:
@@ -110,8 +110,8 @@ class AbsEvoStrategy(EvoStrategy):
         timestamp = time.time() - self.start_time
         for score in scores:
             self.state["evaluations"].append(
-                {"frames": self._state["frames_evaluated"], "time": timestamp, "score": score})
-        self.state["stats"].append({"frames": self._state["frames_evaluated"], "time": timestamp,
+                {"generation": gen_number, "frames": self._state["frames_evaluated"], "time": timestamp, "score": score})
+        self.state["stats"].append({"generation":gen_number, "frames": self._state["frames_evaluated"], "time": timestamp,
                                     "mean": reward_mean, "std": reward_std, "min": reward_min, "max": reward_max})
         # return
 
