@@ -11,7 +11,7 @@ import torch
 
 from api.deep_neuroevolution import GAOptimizer
 from api.evaluators import ParallelEnvEvaluator
-from api.evolution_strategies import GaussianMutationStrategy
+from api.evolution_strategies import GaussianMutationStrategy, CrossoverStrategy
 from api.utils import Policy, ObsNormalizer
 
 # Disable annoying warnings from gym
@@ -72,11 +72,16 @@ if __name__ == '__main__':
 
     env = env_factory()
 
+    '''
     evolution_strategy = GaussianMutationStrategy(policy_factory, evaluator=evaluator,
                                                   parent_selection="uniform",
                                                   std=0.1,
                                                   size=1000, n_elites=20, n_check_top=10, n_check_times=30,
                                                   decay=0.97)
+    '''
+    evolution_strategy = CrossoverStrategy(policy_factory, evaluator=evaluator,
+                                            parent_selection="uniform",
+                                            size=1000, n_elites=20)
 
     optimizer = GAOptimizer(env_factory, policy_factory, evolution_strategy, evaluator)
 
