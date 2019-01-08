@@ -45,7 +45,7 @@ class EnvEvaluator(Evaluator, ABC):
     Evaluates policies against a gym.Env instance.
     """
 
-    def _eval_policy(self, policy: Policy, env: Env, times: int = 1) -> Tuple[Policy, Score]:
+    def _eval_policy(self, policy: Policy, env: Env, times: int = 1, kill_env=True) -> Tuple[Policy, Score]:
         """
         Function to evaluate one policy
         :param policy: some function that produces actions for given observations
@@ -66,8 +66,9 @@ class EnvEvaluator(Evaluator, ABC):
                 obs, reward, done = env.step(action)[:3]
                 total_reward += reward
             rewards.append(total_reward)
-        env.close()
-        del env
+        if kill_env:
+            env.close()
+            del env
 
         policy.teardown()
         score = Score(np.mean(rewards), n_frames=n_frames, last_obs=obs)
@@ -83,7 +84,7 @@ class SequentialEnvEvaluator(EnvEvaluator):
         self.env: Env = env_factory()
 
     def __call__(self, policies: List[Policy], times: int = 1) -> List[Tuple[Policy, Score]]:
-        return [self._eval_policy(policy, self.env, times) for policy in policies]
+        return [self._eval_policy(policy, self.env, times, kill_env=False) for policy in policies]
 
 
 class ParallelEnvEvaluator(EnvEvaluator):

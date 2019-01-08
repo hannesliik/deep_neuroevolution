@@ -77,6 +77,8 @@ if __name__ == '__main__':
     parser.add_argument("-std", type=float, default=0.1)
     parser.add_argument("-i", "--iterations", type=int, default=50)
     parser.add_argument("-ps", "--parent_selection", type=str, choices=['uniform', 'probab'])
+    parser.add_argument("--plot", action="store_true")
+    parser.add_argument("--path", type=str, default="data")
     parser.add_argument("-t", "--times", type=int, default=1,
                         help="The average of t runs is the evaluation score of a policy")
 
@@ -99,14 +101,17 @@ if __name__ == '__main__':
                                                   n_check_top=args["check_n"], n_check_times=args["check_times"],
                                                   decay=args["decay"])
 
-    optimizer = GAOptimizer(env_factory, policy_factory, evolution_strategy, evaluator)
+    optimizer = GAOptimizer(policy_factory, evolution_strategy)
 
     experiment_name = args["exp_name"] + "_" + time.strftime("%Y%m%d_%H%M%S") + "_lunar_lander"
-    if not os.path.exists("data"):
-        os.makedirs("data/")
-    if not os.path.exists("data/" + experiment_name):
-        os.makedirs("data/" + experiment_name)
-    prefix = "data/" + experiment_name + "/"
+
+    if not args["path"].endswith("/"):
+        args["path"] += "/"
+    if not os.path.exists(args["path"]):
+        os.makedirs(args["path"])
+    if not os.path.exists(args["path"] + experiment_name):
+        os.makedirs(args["path"] + experiment_name)
+    prefix = args["path"] + experiment_name + "/"
 
     with open(prefix + "params.json", "w") as fp:
         #json.dump(evolution_strategy.state["params"], fp)
@@ -122,6 +127,7 @@ if __name__ == '__main__':
         # Generate plot
         data = evolution_strategy.state["evaluations"]
         df = pd.DataFrame(data)
-        sns.lineplot(data=df, x="time", y="score", ci="sd")
-        plt.savefig(prefix + f"plot_{i}.png")
         df.to_csv(prefix + "plot.csv")
+        if args["plot"]:
+            sns.lineplot(data=df, x="time", y="score", ci="sd")
+            plt.savefig(prefix + f"plot_{i}.png")
