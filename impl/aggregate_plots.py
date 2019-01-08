@@ -8,6 +8,9 @@ import seaborn as sns
 
 parser = argparse.ArgumentParser()
 parser.add_argument("path", type=str)
+parser.add_argument("--xlabel", type=str)
+parser.add_argument("--ylabel", type=str)
+parser.add_argument("--title", type=str, default="")
 parser.add_argument("-c", action="store_true")
 parser.add_argument("-s", "--save", action="store_true")
 parser.add_argument("-x", type=str, choices=["frames", "time", "generation"], default="generation")
@@ -30,10 +33,15 @@ else:
             df = pd.read_csv(os.path.join(dir[0], "plot.csv"))
         else:
             df = pd.concat((df, pd.read_csv(os.path.join(dir[0], "plot.csv"))))
-    sns.lineplot(data=df, x=args.x, y="score", ci="sd", label="placeholder")
+    sns.lineplot(data=df, x=args.x, y="score", ci="sd")
+if args.xlabel is not None:
+    plt.xlabel(args.xlabel)
 plt.ylabel("Mean score")
+if args.ylabel is not None:
+    plt.ylabel(args.ylabel)
+plt.suptitle(args.title)
 plt.legend()
 if args.save:
-    plt.imsave("plot.png")
+    plt.savefig("plot.png")
 else:
     plt.show()
