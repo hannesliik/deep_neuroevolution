@@ -12,7 +12,7 @@ import torch
 
 from api.deep_neuroevolution import GAOptimizer
 from api.evaluators import ParallelEnvEvaluator
-from api.evolution_strategies import GaussianMutationStrategy
+from api.evolution_strategies import GaussianMutationStrategy, CrossoverStrategy
 from api.utils import Policy
 
 # Disable annoying warnings from gym
@@ -76,9 +76,9 @@ if __name__ == '__main__':
     parser.add_argument("-d", "--decay", type=float, default=1)
     parser.add_argument("-std", type=float, default=0.1)
     parser.add_argument("-i", "--iterations", type=int, default=50)
-    parser.add_argument("-ps", "--parent_selection", type=str, choices=['uniform', 'probab'])
     parser.add_argument("--plot", action="store_true")
     parser.add_argument("--path", type=str, default="data")
+    parser.add_argument("-ps", "--parent_selection", type=str, choices=['uniform', 'probab'], default='uniform')
     parser.add_argument("-t", "--times", type=int, default=1,
                         help="The average of t runs is the evaluation score of a policy")
 
@@ -94,12 +94,17 @@ if __name__ == '__main__':
 
     env = env_factory()
 
+    '''
     evolution_strategy = GaussianMutationStrategy(policy_factory, evaluator=evaluator,
                                                   parent_selection=args["parent_selection"],
                                                   std=args["std"],
                                                   size=args["gen_size"], n_elites=args["elites"],
                                                   n_check_top=args["check_n"], n_check_times=args["check_times"],
                                                   decay=args["decay"])
+    '''
+    evolution_strategy = CrossoverStrategy(policy_factory, evaluator=evaluator,
+                                            parent_selection=args["parent_selection"],
+                                            size=args["gen_size"], n_elites=args["elites"])
 
     optimizer = GAOptimizer(policy_factory, evolution_strategy)
 

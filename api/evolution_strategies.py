@@ -219,6 +219,55 @@ class GaussianMutationStrategy(AbsEvoStrategy):
         return child
 
 
+class CrossoverStrategy(AbsEvoStrategy):
+    """
+   Uses parts of parents pairs to generate offspring
+   """
+
+    def __init__(self, policy_factory: Callable, evaluator: Evaluator,
+                 parent_selection: str = "uniform",
+                 size: int = 200, n_elites: int = 20):
+        """
+        :param parent_selection: "uniform" to choose parents from elites uniformly,
+        "probab" - probabilistically based on rewards
+        """
+        params = {"parent_selection": parent_selection, "size": size,
+                  "n_elites": n_elites}
+        super().__init__(policy_factory, evaluator, size, n_elites, params=params)
+        self.parent_selection = parent_selection
+
+    def _generate(self, elites: List[Tuple[Policy, Score]]) -> List[Policy]:
+        offspring = []
+        self.p = None
+        for i in range(self.size // 2):
+            p1, p2 = self._pick_parents(elites)
+            c1, c2 = self._generate_children(p1, p2)
+            offspring += [c1, c2]
+        self.p = None
+        return offspring
+
+    def _pick_parents(self, elites: List[Tuple[Policy, Score]], n=2) -> (Policy, Policy):
+        if self.parent_selection == "probab" and self.p is None:
+            self.p = softmax([float(elite[1]) for elite in elites])
+
+        parents = [elites[i][0] for i in
+                   np.random.choice(len(elites), size=n, replace=False,
+                                    p=self.p if self.parent_selection == "probab" else None)]
+
+        return parents[0], parents[1]
+
+    def _generate_children(self, p1: Policy, p2: Policy):
+        child1, child2 = self.policy_factory(), self.policy_factory()
+        child1.load_state_dict(p1.state_dict())
+        child2.load_state_dict(p2.state_dict())
+        for tensor1, tensor2 in zip(child1.state_dict().values(), child1.state_dict().values()):
+            if np.random.choice([True, False]):
+                temp = tensor1[:]
+                tensor1[:] = tensor2[:]
+                tensor2[:] = temp
+        return child1, child2
+
+
 class NoveltySearchStrategy(GaussianMutationStrategy):
     """
     Produces next generation based on the novelty estimated by an arbitrary metric
