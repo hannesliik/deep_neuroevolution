@@ -12,7 +12,7 @@ import torch
 
 from api.deep_neuroevolution import GAOptimizer
 from api.evaluators import ParallelEnvEvaluator
-from api.evolution_strategies import GaussianMutationStrategy, CrossoverStrategy
+from api.evolution_strategies import GaussianMutationStrategy, CrossoverStrategy, CovMatAdaptationStrategy
 from api.utils import Policy
 
 # Disable annoying warnings from gym
@@ -101,10 +101,13 @@ if __name__ == '__main__':
                                                   size=args["gen_size"], n_elites=args["elites"],
                                                   n_check_top=args["check_n"], n_check_times=args["check_times"],
                                                   decay=args["decay"])
-    '''
+    
     evolution_strategy = CrossoverStrategy(policy_factory, evaluator=evaluator,
                                             parent_selection=args["parent_selection"],
                                             size=args["gen_size"], n_elites=args["elites"])
+    '''
+    evolution_strategy = CovMatAdaptationStrategy(policy_factory, evaluator=evaluator,
+                                                  size=args["gen_size"], n_elites=args["elites"])
 
     optimizer = GAOptimizer(policy_factory, evolution_strategy)
 

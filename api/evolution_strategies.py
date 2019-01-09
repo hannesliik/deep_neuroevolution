@@ -9,9 +9,6 @@ from api.evaluators import Evaluator, Score
 from api.utils import Policy
 
 
-# from scipy.special import softmax
-
-
 def softmax(x) -> np.ndarray:
     exp = np.exp(x)
     return exp / np.sum(exp)
@@ -62,7 +59,8 @@ class AbsEvoStrategy(EvoStrategy):
 
     @abstractmethod
     def __init__(self, policy_factory: Callable, evaluator: Evaluator, size: int = 200,
-                 n_elites: int = 20, params: dict = None):
+                 n_elites: int = 20, n_check_top: int = 10, n_check_times: int = 30,
+                 params: dict = None):
         """
         :param policy_factory: factory for creating policies
         :param evaluator: evaluator used for estimating policies characteristics
@@ -75,6 +73,8 @@ class AbsEvoStrategy(EvoStrategy):
         self.evaluator = evaluator
         self.size = size
         self.n_elites = n_elites
+        self.n_check_top = n_check_top
+        self.n_check_times = n_check_times
         self.start_time = -1
         self._state = {"params": params, "frames_evaluated": 0, "stats": [], "evaluations": []}
         self._best_policy: Policy = None
@@ -136,6 +136,12 @@ class AbsEvoStrategy(EvoStrategy):
         """
         return sorted(prev_gen, key=lambda pol_sc: float(pol_sc[1]), reverse=True)[:self.n_elites]
 
+    def _find_true_elite(self, elites: List[Tuple[Policy, Score]]) -> Policy:
+        elites_checked = self.evaluator([elite[0] for elite in elites[:self.n_check_top]], self.n_check_times)
+        true_elite = sorted(elites_checked, key=lambda x: float(x[1]), reverse=True)[0]
+        self.state["frames_evaluated"] += sum([elite[1]["n_frames"] for elite in elites])
+        return true_elite[0]
+
     @property
     def state(self):
         return self._state
@@ -169,11 +175,9 @@ class GaussianMutationStrategy(AbsEvoStrategy):
         params = {"decay": decay, "strategy": "GaussianMutationStrategy", "parent_selection": parent_selection,
                   "std": std, "size": size,
                   "n_elites": n_elites, "n_check_top": n_check_top, n_check_times: n_check_times}
-        super().__init__(policy_factory, evaluator, size, n_elites, params=params)
+        super().__init__(policy_factory, evaluator, size, n_elites, n_check_top, n_check_times, params=params)
         self.parent_selection = parent_selection
         self.std = std
-        self.n_check_top = n_check_top
-        self.n_check_times = n_check_times
         self.decay = decay
 
     def __call__(self, *args, **kwargs):
@@ -204,13 +208,6 @@ class GaussianMutationStrategy(AbsEvoStrategy):
             parent = elites[np.random.choice(len(elites), p=self.p)][0]
         return parent
 
-    def _find_true_elite(self, elites: List[Tuple[Policy, Score]]) -> Policy:
-        elites_checked = self.evaluator([elite[0] for elite in elites[:self.n_check_top]], self.n_check_times)
-        true_elite = sorted(elites_checked, key=lambda x: float(x[1]), reverse=True)[0]
-        print(true_elite[1])
-        self.state["frames_evaluated"] += sum([elite[1]["n_frames"] for elite in elites])
-        return true_elite[0]
-
     def _generate_child(self, parent: Policy):
         child = self.policy_factory()
         child.load_state_dict(parent.state_dict())
@@ -221,19 +218,22 @@ class GaussianMutationStrategy(AbsEvoStrategy):
 
 class CrossoverStrategy(AbsEvoStrategy):
     """
-   Uses parts of parents pairs to generate offspring
-   """
+    Uses parts of parents pairs to generate offspring
+    """
 
     def __init__(self, policy_factory: Callable, evaluator: Evaluator,
                  parent_selection: str = "uniform",
-                 size: int = 200, n_elites: int = 20):
+                 size: int = 200, n_elites: int = 20,
+                 n_check_top: int = 10, n_check_times: int = 30):
         """
         :param parent_selection: "uniform" to choose parents from elites uniformly,
         "probab" - probabilistically based on rewards
         """
-        params = {"parent_selection": parent_selection, "size": size,
-                  "n_elites": n_elites}
-        super().__init__(policy_factory, evaluator, size, n_elites, params=params)
+        params = {"strategy": "CrossoverStrategy", "parent_selection": parent_selection, "size": size,
+                  "n_elites": n_elites, "n_check_top": n_check_top, "n_check_times": n_check_times}
+        super().__init__(policy_factory, evaluator, size=size, n_elites=n_elites,
+                         n_check_top=n_check_top, n_check_times=n_check_times,
+                         params=params)
         self.parent_selection = parent_selection
 
     def _generate(self, elites: List[Tuple[Policy, Score]]) -> List[Policy]:
@@ -244,6 +244,9 @@ class CrossoverStrategy(AbsEvoStrategy):
             c1, c2 = self._generate_children(p1, p2)
             offspring += [c1, c2]
         self.p = None
+        true_elite = self._find_true_elite(elites)
+        self._best_policy = true_elite
+        offspring.append(true_elite)
         return offspring
 
     def _pick_parents(self, elites: List[Tuple[Policy, Score]], n=2) -> (Policy, Policy):
@@ -268,37 +271,69 @@ class CrossoverStrategy(AbsEvoStrategy):
         return child1, child2
 
 
-class NoveltySearchStrategy(GaussianMutationStrategy):
+class CovMatAdaptationStrategy(AbsEvoStrategy):
     """
-    Produces next generation based on the novelty estimated by an arbitrary metric
+    Modifies elite members by applying constant Gaussian mutation
     """
 
     def __init__(self, policy_factory: Callable, evaluator: Evaluator,
-                 novelty_metric: Callable, n_neighbors=15,
-                 parent_selection: str = "uniform", std=0.02,
                  size: int = 200, n_elites: int = 20,
                  n_check_top: int = 10, n_check_times: int = 30):
-        """
-        :param nov_dist: Tuple[Tuple[Policy, Score], Tuple[Policy, Score]] -> float
-        - distance metric of novelty between policies
-        :param n_neighbors: number of neighbors to consider calculating the overall novelty
-        """
-        super().__init__(policy_factory, evaluator, parent_selection, std, size, n_elites, n_check_top, n_check_times)
-        self.nov_dist = novelty_metric
-        self.n_neighbors = n_neighbors
-        self.archive = []
+        params = {"strategy": "CovMatAdaptationStrategy", "size": size,
+                  "n_elites": n_elites, "n_check_top": n_check_top, "n_check_times": n_check_times}
+        super().__init__(policy_factory, evaluator, size=size, n_elites=n_elites,
+                         n_check_top=n_check_top, n_check_times=n_check_times,
+                         params=params)
+        self._means = None
 
-    def _select_elites(self, prev_gen: List[Tuple[Policy, Score]]) -> List[Tuple[Policy, Score]]:
-        neighbors = self.archive + prev_gen
-        # consider more efficient computation method
-        novelty_scores: List[Tuple[Tuple[Policy, Score], float]] = []
-        for i in neighbors:
-            dists_i = []
-            for j in neighbors:
-                dists_i.append(self.nov_dist(i, j))
-            novelty = np.mean(dists_i.sort(reverse=True)[:self.n_neighbors])
-            novelty_scores.append((i, novelty))
-        return [policy for policy, novelty
-                in novelty_scores.sort(key=lambda x: x[1])[:self.n_elites]]
+    def __call__(self, prev_gen: List[Policy], gen_number: Optional[int] = None):
+        if self._means is None:
+            self._means = self._calc_means(self._collect_vars(prev_gen))
+        return super().__call__(prev_gen, gen_number)
+
+    def _generate(self, elites: List[Tuple[Policy, Score]]) -> List[Policy]:
+        vars = self._collect_vars([elite[0] for elite in elites])
+        cov = self._calc_cov(vars, self._means)
+        self._means = self._calc_means(vars)
+        sample = np.random.multivariate_normal(self._means, cov, size=self.size)
+        offspring = []
+        for state in sample:
+            child = self.policy_factory()
+            i = 0
+            for tensor in child.state_dict().values():
+                data = torch.tensor(state[i:i + tensor.numel()]).reshape(tensor.shape)
+                tensor[:] = data
+                i += tensor.numel()
+            offspring.append(child)
+
+        true_elite = self._find_true_elite(elites)
+        self._best_policy = true_elite
+        offspring.append(true_elite)
+        return offspring
+
+    def _collect_vars(self, policies: List[Policy]) -> np.ndarray:
+        """
+        :return: [n_vars x n_policies]
+        """
+        return np.stack([np.concatenate([tensor.numpy().flatten()
+                                         for tensor in policy.state_dict().values()])
+                         for policy in policies]).transpose()
+
+    def _calc_means(self, vars: np.ndarray) -> np.ndarray:
+        """
+         :return: [n_vars x 1]
+         """
+        return np.mean(vars, axis=1)
+
+    def _calc_cov(self, vars: np.ndarray, means=None) -> np.ndarray:
+        """
+         :return: [n_vars x n_vars]
+         """
+        if means is None:
+            means = self._calc_means(vars)
+        vars -= np.expand_dims(means, axis=1)
+        cov = np.dot(vars, vars.transpose())
+        cov *= np.true_divide(1, vars.shape[1] - 1)
+        return cov.squeeze()
 
 # TODO implement more strategies
