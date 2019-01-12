@@ -58,13 +58,18 @@ class AbsEvoStrategy(EvoStrategy):
     """
 
     @abstractmethod
-    def __init__(self, policy_factory: Callable, evaluator: Evaluator, size: int = 200,
-                 n_elites: int = 20, params: dict = None):
+    def __init__(self, policy_factory: Callable, evaluator: Evaluator,
+                 size: int = 200, n_elites: int = 20,
+                 check_true_elite: bool = True, n_check_top: int = 10, n_check_times: int = 30,
+                 params: dict = None):
         """
         :param policy_factory: factory for creating policies
         :param evaluator: evaluator used for estimating policies characteristics
         :param size: number of policies to generate
         :param n_elites: number of policies to consider when creating the next generation
+        :param check_true_elite: whether to check for the true elite or retain all elites
+        :param n_check_top: number of top elites to check for true elite
+        :param n_check_times: number of checks on each elite to determine the true elite
         :param params: parameters of the experiment
         """
         self.exp_params = params
@@ -72,8 +77,12 @@ class AbsEvoStrategy(EvoStrategy):
         self.evaluator = evaluator
         self.size = size
         self.n_elites = n_elites
+        self.check_true_elite = check_true_elite
+        self.n_check_top = n_check_top
+        self.n_check_times = n_check_times
         self.start_time = -1
         self._state = {"params": params, "frames_evaluated": 0, "stats": [], "evaluations": []}
+        self._true_elite = None
         self._elites: List[Policy] = []
 
     def __call__(self, prev_gen: List[Policy], gen_number: Optional[int] = None) -> List[Policy]:
@@ -92,11 +101,10 @@ class AbsEvoStrategy(EvoStrategy):
 
     @property
     def best_policy(self):
-        if self._elites:
-            elites_checked = self.evaluator([elite[0] for elite in self._elites], 20)
-            best_policy = sorted(elites_checked, key=lambda x: float(x[1]), reverse=True)[0]
-            self.state["frames_evaluated"] += sum([elite[1]["n_frames"] for elite in self._elites])
-            return best_policy[0]
+        if self.check_true_elite:
+            return self._true_elite
+        elif self._elites:
+            return self._check_true_elite([elite[0] for elite in self._elites])
 
     def _update_stats(self, evaluated: List[Tuple[Policy, Score]], gen_number: Optional[int]) -> None:
         """
@@ -138,6 +146,12 @@ class AbsEvoStrategy(EvoStrategy):
         self._elites = sorted(prev_gen, key=lambda pol_sc: float(pol_sc[1]), reverse=True)[:self.n_elites]
         return self._elites
 
+    def _check_true_elite(self, elites: List[Policy]) -> Policy:
+        elites_checked = self.evaluator(elites[:self.n_check_top], self.n_check_times)
+        self._true_elite = sorted(elites_checked, key=lambda x: float(x[1]), reverse=True)[0][0]
+        self.state["frames_evaluated"] += sum([elite[1]["n_frames"] for elite in self._elites])
+        return self._true_elite
+
     def _pick_parents(self, elites: List[Tuple[Policy, Score]], n=2, p=None) -> List[Policy]:
         return [elites[i][0] for i in
                 np.random.choice(len(elites), size=n, replace=False, p=p)]
@@ -163,19 +177,21 @@ class GaussianMutationStrategy(AbsEvoStrategy):
     """
 
     def __init__(self, policy_factory: Callable, evaluator: Evaluator,
-                 parent_selection: str = "uniform", std: float = 0.02,
+                 parent_selection: str = "uniform", std: float = 0.02, decay: float = 1.,
                  size: int = 200, n_elites: int = 20,
-                 decay: float = 1.):
+                 check_true_elite: bool = True, n_check_top: int = 10, n_check_times: int = 30):
         """
         :param parent_selection: "uniform" to choose parents from elites uniformly,
         "probab" - probabilistically based on rewards
-        :param std: Standard deviation of the Gaussian mutation
+        :param std: standard deviation of the Gaussian mutation
         :param decay: std decay - every iteration the std is multiplied by the value. The "annealing" parameter.
         """
-        params = {"decay": decay, "strategy": "GaussianMutationStrategy", "parent_selection": parent_selection,
-                  "std": std, "size": size,
-                  "n_elites": n_elites}
-        super().__init__(policy_factory, evaluator, size=size, n_elites=n_elites, params=params)
+        params = {"strategy": "GaussianMutationStrategy", "parent_selection": parent_selection,
+                  "std": std, "decay": decay, "size": size, "n_elites": n_elites,
+                  "check_true_elite": check_true_elite, "n_check_top": n_check_top, "n_check_times": n_check_times}
+        super().__init__(policy_factory, evaluator, size, n_elites,
+                         check_true_elite, n_check_top, n_check_times,
+                         params=params)
         self.parent_selection = parent_selection
         self.std = std
         self.decay = decay
@@ -186,12 +202,15 @@ class GaussianMutationStrategy(AbsEvoStrategy):
         return generation
 
     def _generate(self, elites: List[Tuple[Policy, Score]]) -> List[Policy]:
-        offspring = [e[0] for e in elites]
+        offspring = []
         p = softmax([float(elite[1]) for elite in elites]) if self.parent_selection == "probab" else None
-        for i in range(self.size - self.n_elites):
+        gen_size = self.size - (1 if self.check_true_elite else self.n_elites)
+        for i in range(gen_size):
             parent = self._pick_parents(elites, n=1, p=p)[0]
             child = self._generate_child(parent)
             offspring.append(child)
+        elites = [elite[0] for elite in elites]
+        offspring += ([self._check_true_elite(elites)] if self.check_true_elite else elites)
         return offspring
 
     def _generate_child(self, parent: Policy):
@@ -209,17 +228,22 @@ class CrossoverStrategy(AbsEvoStrategy):
 
     def __init__(self, policy_factory: Callable, evaluator: Evaluator,
                  parent_selection: str = "uniform",
-                 std: float = 0.1, p_crossover: float = 0.3,
+                 std: float = 0.1, p_crossover: float = 0.3, decay: float = 1.,
                  size: int = 200, n_elites: int = 20,
-                 decay: float = 1.):
+                 check_true_elite: bool = True, n_check_top: int = 10, n_check_times: int = 30):
         """
-        :param parent_selection: "uniform" to choose parents from elites uniformly,
-        "probab" - probabilistically based on rewards
-        """
+         :param parent_selection: "uniform" to choose parents from elites uniformly,
+         "probab" - probabilistically based on rewards
+         :param std: standard deviation of the Gaussian mutation
+         :param p_crossover: probability to perform parameter crossover
+         :param decay: std decay - every iteration the std is multiplied by the value. The "annealing" parameter.
+         """
         params = {"strategy": "CrossoverStrategy", "parent_selection": parent_selection,
-                  "size": size, "n_elites": n_elites, "std": std, "p_crossover": p_crossover,
-                  "decay": decay}
-        super().__init__(policy_factory, evaluator, size=size, n_elites=n_elites, params=params)
+                  "std": std,  " p_crossover": p_crossover, "decay": decay, "size": size, "n_elites": n_elites,
+                  "check_true_elite": check_true_elite, "n_check_top": n_check_top, "n_check_times": n_check_times}
+        super().__init__(policy_factory, evaluator, size, n_elites,
+                         check_true_elite, n_check_top, n_check_times,
+                         params=params)
         self.parent_selection = parent_selection
         self.p_crossover = p_crossover
         self.std = std
@@ -232,12 +256,15 @@ class CrossoverStrategy(AbsEvoStrategy):
         return generation
 
     def _generate(self, elites: List[Tuple[Policy, Score]]) -> List[Policy]:
-        offspring = [e[0] for e in elites]
+        offspring = []
         p = softmax([float(elite[1]) for elite in elites]) if self.parent_selection == "probab" else None
-        for i in range(self.size - self.n_elites):
+        gen_size = self.size - (1 if self.check_true_elite else self.n_elites)
+        for i in range(gen_size):
             parents = self._pick_parents(elites, n=2, p=p)
             children = self._generate_children(parents[0], parents[1])
             offspring += children
+        elites = [elite[0] for elite in elites]
+        offspring += ([self._check_true_elite(elites)] if self.check_true_elite else elites)
         return offspring
 
     def _generate_children(self, parent1: Policy, parent2: Policy):

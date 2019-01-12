@@ -28,13 +28,13 @@ class LunarLanderTorchPolicy(Policy, torch.nn.Module):
         super().__init__()
         # self.obs_normalizer = obs_normalizer
         self.net = torch.nn.Sequential(
-            torch.nn.Linear(LunarLanderTorchPolicy.N_INPUTS, 32),
+            torch.nn.Linear(LunarLanderTorchPolicy.N_INPUTS, 64),
             torch.nn.Tanh(),
-            torch.nn.Linear(32, 32),
+            torch.nn.Linear(64, 64),
             torch.nn.Tanh(),
-            torch.nn.Linear(32, 32),
+            torch.nn.Linear(64, 64),
             torch.nn.Tanh(),
-            torch.nn.Linear(32, LunarLanderTorchPolicy.N_OUTPUTS),
+            torch.nn.Linear(64, LunarLanderTorchPolicy.N_OUTPUTS),
             torch.nn.Softmax(dim=1))
 
     def forward(self, x):
@@ -71,8 +71,11 @@ if __name__ == '__main__':
     parser.add_argument("exp_name", type=str)
     parser.add_argument("-g", "--gen_size", type=int, default=200)
     parser.add_argument("-e", "--elites", type=int, default=20)
+    parser.add_argument("-cn", "--check_n", type=int, default=10)
+    parser.add_argument("-ct", "--check_times", type=int, default=30)
     parser.add_argument("-d", "--decay", type=float, default=1)
     parser.add_argument("-std", type=float, default=0.1)
+    parser.add_argument("-pc", "--p_crossover", type=float, default=0.3)
     parser.add_argument("-i", "--iterations", type=int, default=50)
     parser.add_argument("--plot", action="store_true")
     parser.add_argument("--path", type=str, default="data")
@@ -94,14 +97,17 @@ if __name__ == '__main__':
     if args["strat"] == "gaussian":
         evolution_strategy = GaussianMutationStrategy(policy_factory, evaluator=evaluator,
                                                       parent_selection=args["parent_selection"],
-                                                      std=args["std"],
+                                                      std=args["std"], decay=args["decay"],
                                                       size=args["gen_size"], n_elites=args["elites"],
-                                                      n_check_top=args["check_n"], n_check_times=args["check_times"],
-                                                      decay=args["decay"])
+                                                      n_check_top=args["check_n"],
+                                                      n_check_times=args["check_times"])
     elif args["strat"] == "crossover":
         evolution_strategy = CrossoverStrategy(policy_factory, evaluator=evaluator,
                                                parent_selection=args["parent_selection"],
-                                               size=args["gen_size"], n_elites=args["elites"])
+                                               std=args["std"], decay=args["decay"], p_crossover=args["p_crossover"],
+                                               size=args["gen_size"], n_elites=args["elites"],
+                                               n_check_top=args["check_n"],
+                                               n_check_times=args["check_times"])
 
     optimizer = GAOptimizer(policy_factory, evolution_strategy)
 
