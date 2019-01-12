@@ -79,6 +79,7 @@ if __name__ == '__main__':
     parser.add_argument("--plot", action="store_true")
     parser.add_argument("--path", type=str, default="data")
     parser.add_argument("-ps", "--parent_selection", type=str, choices=['uniform', 'probab'], default='uniform')
+    parser.add_argument("-strat", type=str, choices=['gaussian', 'crossover'], default='gaussian')
     parser.add_argument("-t", "--times", type=int, default=1,
                         help="The average of t runs is the evaluation score of a policy")
 
@@ -93,18 +94,17 @@ if __name__ == '__main__':
     evaluator = ParallelEnvEvaluator(env_factory=env_factory, times=args["times"])
 
     env = env_factory()
-
-    '''
-    evolution_strategy = GaussianMutationStrategy(policy_factory, evaluator=evaluator,
-                                                  parent_selection=args["parent_selection"],
-                                                  std=args["std"],
-                                                  size=args["gen_size"], n_elites=args["elites"],
-                                                  n_check_top=args["check_n"], n_check_times=args["check_times"],
-                                                  decay=args["decay"])
-    '''
-    evolution_strategy = CrossoverStrategy(policy_factory, evaluator=evaluator,
-                                            parent_selection=args["parent_selection"],
-                                            size=args["gen_size"], n_elites=args["elites"])
+    if args["strat"] == "gaussian":
+        evolution_strategy = GaussianMutationStrategy(policy_factory, evaluator=evaluator,
+                                                      parent_selection=args["parent_selection"],
+                                                      std=args["std"],
+                                                      size=args["gen_size"], n_elites=args["elites"],
+                                                      n_check_top=args["check_n"], n_check_times=args["check_times"],
+                                                      decay=args["decay"])
+    if args["strat"] == "crossover":
+        evolution_strategy = CrossoverStrategy(policy_factory, evaluator=evaluator,
+                                                parent_selection=args["parent_selection"],
+                                                size=args["gen_size"], n_elites=args["elites"])
 
     optimizer = GAOptimizer(policy_factory, evolution_strategy)
 
