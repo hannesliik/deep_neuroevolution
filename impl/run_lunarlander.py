@@ -30,11 +30,11 @@ class LunarLanderTorchPolicy(Policy, torch.nn.Module):
         self.net = torch.nn.Sequential(
             torch.nn.Linear(LunarLanderTorchPolicy.N_INPUTS, 32),
             torch.nn.Tanh(),
-            torch.nn.Linear(32, 32),
+            torch.nn.Linear(64, 64),
             torch.nn.Tanh(),
-            torch.nn.Linear(32, 32),
+            torch.nn.Linear(64, 64),
             torch.nn.Tanh(),
-            torch.nn.Linear(32, LunarLanderTorchPolicy.N_OUTPUTS),
+            torch.nn.Linear(64, LunarLanderTorchPolicy.N_OUTPUTS),
             torch.nn.Softmax(dim=1))
 
     def forward(self, x):
