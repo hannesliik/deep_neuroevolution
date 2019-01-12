@@ -77,7 +77,7 @@ if __name__ == '__main__':
     parser.add_argument("--plot", action="store_true")
     parser.add_argument("--path", type=str, default="data")
     parser.add_argument("-ps", "--parent_selection", type=str, choices=['uniform', 'probab'], default='uniform')
-    parser.add_argument("-strat", type=str, choices=['gaussian', 'crossover'], default='gaussian')
+    parser.add_argument("-strat", type=str, choices=['gaussian', 'crossover', 'cma'], default='gaussian')
     parser.add_argument("-t", "--times", type=int, default=1,
                         help="The average of t runs is the evaluation score of a policy")
 
@@ -102,6 +102,10 @@ if __name__ == '__main__':
         evolution_strategy = CrossoverStrategy(policy_factory, evaluator=evaluator,
                                                parent_selection=args["parent_selection"],
                                                size=args["gen_size"], n_elites=args["elites"])
+    elif args["strat"] == "cms":
+        evolution_strategy = CovMatAdaptationStrategy(policy_factory, evaluator=evaluator,
+                                                      size=args["gen_size"], n_elites=args["elites"])
+
 
     optimizer = GAOptimizer(policy_factory, evolution_strategy)
 
@@ -119,17 +123,21 @@ if __name__ == '__main__':
         # json.dump(evolution_strategy.state["params"], fp)
         json.dump(args, fp)
 
-    n_gens = 50
-    for i in range(n_gens):
+    for i in range(args["gen_size"]):
         start = time.time()
         optimizer.train_generation()
+        # print(evolution_strategy.state)
         print("generation time:", time.time() - start)
-        if i == n_gens - 1:
-            # Save model
-            torch.save(evolution_strategy.best_policy.state_dict(), prefix + "model_state_dict.pth")
-            # Generate plot
-            data = evolution_strategy.state["evaluations"]
-            df = pd.DataFrame(data)
-            df.to_csv(prefix + "plot.csv")
+        # Save model
+        torch.save(evolution_strategy.best_policy.state_dict(), prefix + "model_state_dict.pth")
+        # Generate plot
+        data = evolution_strategy.state["evaluations"]
+        df = pd.DataFrame(data)
+        df.to_csv(prefix + "plot.csv")
+        if args["plot"]:
             sns.lineplot(data=df, x="time", y="score", ci="sd")
             plt.savefig(prefix + f"plot_{i}.png")
+            
+if not args["plot"]:
+    sns.lineplot(data=df, x="time", y="score", ci="sd")
+    plt.savefig(prefix + f"plot_{i}.png")
