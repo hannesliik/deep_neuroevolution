@@ -12,7 +12,7 @@ import torch
 
 from api.deep_neuroevolution import GAOptimizer
 from api.evaluators import ParallelEnvEvaluator
-from api.evolution_strategies import GaussianMutationStrategy, CrossoverStrategy
+from api.evolution_strategies import GaussianMutationStrategy, CrossoverStrategy, CovMatAdaptationStrategy
 from api.utils import Policy
 
 # Disable annoying warnings from gym
@@ -26,7 +26,7 @@ class LunarLanderTorchPolicy(Policy, torch.nn.Module):
 
     def __init__(self):
         super().__init__()
-        #self.obs_normalizer = obs_normalizer
+        # self.obs_normalizer = obs_normalizer
         self.net = torch.nn.Sequential(
             torch.nn.Linear(LunarLanderTorchPolicy.N_INPUTS, 64),
             torch.nn.Tanh(),
@@ -42,7 +42,7 @@ class LunarLanderTorchPolicy(Policy, torch.nn.Module):
 
     def __call__(self, obs: np.ndarray) -> np.ndarray:
         # Observation to torch tensor, add empty batch dimension
-        #obs = self.obs_normalizer.normalize(obs)
+        # obs = self.obs_normalizer.normalize(obs)
         obs = torch.from_numpy(obs).float().unsqueeze(0)
         action = self.net.forward(obs)
         return torch.argmax(action, dim=1).detach().numpy()[0]  # Back to numpy array and return
@@ -53,7 +53,7 @@ def env_factory() -> gym.Env:
     return gym.make("LunarLander-v2")
 
 
-#obs_normalizer = ObsNormalizer(env_factory, n_samples=2000)
+# obs_normalizer = ObsNormalizer(env_factory, n_samples=2000)
 
 
 # Create policy factory
@@ -79,7 +79,7 @@ if __name__ == '__main__':
     parser.add_argument("--plot", action="store_true")
     parser.add_argument("--path", type=str, default="data")
     parser.add_argument("-ps", "--parent_selection", type=str, choices=['uniform', 'probab'], default='uniform')
-    parser.add_argument("-strat", type=str, choices=['gaussian', 'crossover'], default='gaussian')
+    parser.add_argument("-strat", type=str, choices=['gaussian', 'crossover', 'cma'], default='gaussian')
     parser.add_argument("-t", "--times", type=int, default=1,
                         help="The average of t runs is the evaluation score of a policy")
 
@@ -101,10 +101,13 @@ if __name__ == '__main__':
                                                       size=args["gen_size"], n_elites=args["elites"],
                                                       n_check_top=args["check_n"], n_check_times=args["check_times"],
                                                       decay=args["decay"])
-    if args["strat"] == "crossover":
+    elif args["strat"] == "crossover":
         evolution_strategy = CrossoverStrategy(policy_factory, evaluator=evaluator,
-                                                parent_selection=args["parent_selection"],
-                                                size=args["gen_size"], n_elites=args["elites"])
+                                               parent_selection=args["parent_selection"],
+                                               size=args["gen_size"], n_elites=args["elites"])
+    elif args["strat"] == "cms":
+        evolution_strategy = CovMatAdaptationStrategy(policy_factory, evaluator=evaluator,
+                                                      size=args["gen_size"], n_elites=args["elites"])
 
     optimizer = GAOptimizer(policy_factory, evolution_strategy)
 
@@ -119,7 +122,7 @@ if __name__ == '__main__':
     prefix = args["path"] + experiment_name + "/"
 
     with open(prefix + "params.json", "w") as fp:
-        #json.dump(evolution_strategy.state["params"], fp)
+        # json.dump(evolution_strategy.state["params"], fp)
         json.dump(args, fp)
 
     for i in range(50):
