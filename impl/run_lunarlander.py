@@ -125,17 +125,17 @@ if __name__ == '__main__':
         # json.dump(evolution_strategy.state["params"], fp)
         json.dump(args, fp)
 
-    n_gens = 50
-    for i in range(n_gens):
+    for i in range(args["gen_size"]):
         start = time.time()
         optimizer.train_generation()
+        # print(evolution_strategy.state)
         print("generation time:", time.time() - start)
-        if i == n_gens - 1:
-            # Save model
-            torch.save(evolution_strategy.best_policy.state_dict(), prefix + "model_state_dict.pth")
-            # Generate plot
-            data = evolution_strategy.state["evaluations"]
-            df = pd.DataFrame(data)
-            df.to_csv(prefix + "plot.csv")
+        # Save model
+        torch.save(evolution_strategy.best_policy.state_dict(), prefix + "model_state_dict.pth")
+        # Generate plot
+        data = evolution_strategy.state["evaluations"]
+        df = pd.DataFrame(data)
+        df.to_csv(prefix + "plot.csv")
+        if args["plot"]:
             sns.lineplot(data=df, x="time", y="score", ci="sd")
             plt.savefig(prefix + f"plot_{i}.png")
