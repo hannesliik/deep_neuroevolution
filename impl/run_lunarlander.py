@@ -12,7 +12,7 @@ import torch
 
 from api.deep_neuroevolution import GAOptimizer
 from api.evaluators import ParallelEnvEvaluator
-from api.evolution_strategies import GaussianMutationStrategy, CrossoverStrategy, CovMatAdaptationStrategy
+from api.evolution_strategies import GaussianMutationStrategy, CrossoverStrategy
 from api.utils import Policy
 
 # Disable annoying warnings from gym
@@ -28,13 +28,13 @@ class LunarLanderTorchPolicy(Policy, torch.nn.Module):
         super().__init__()
         # self.obs_normalizer = obs_normalizer
         self.net = torch.nn.Sequential(
-            torch.nn.Linear(LunarLanderTorchPolicy.N_INPUTS, 64),
+            torch.nn.Linear(LunarLanderTorchPolicy.N_INPUTS, 32),
             torch.nn.Tanh(),
-            torch.nn.Linear(64, 64),
+            torch.nn.Linear(32, 32),
             torch.nn.Tanh(),
-            torch.nn.Linear(64, 64),
+            torch.nn.Linear(32, 32),
             torch.nn.Tanh(),
-            torch.nn.Linear(64, LunarLanderTorchPolicy.N_OUTPUTS),
+            torch.nn.Linear(32, LunarLanderTorchPolicy.N_OUTPUTS),
             torch.nn.Softmax(dim=1))
 
     def forward(self, x):
@@ -71,21 +71,18 @@ if __name__ == '__main__':
     parser.add_argument("exp_name", type=str)
     parser.add_argument("-g", "--gen_size", type=int, default=200)
     parser.add_argument("-e", "--elites", type=int, default=20)
-    parser.add_argument("-cn", "--check_n", type=int, default=10)
-    parser.add_argument("-ct", "--check_times", type=int, default=30)
     parser.add_argument("-d", "--decay", type=float, default=1)
     parser.add_argument("-std", type=float, default=0.1)
     parser.add_argument("-i", "--iterations", type=int, default=50)
     parser.add_argument("--plot", action="store_true")
     parser.add_argument("--path", type=str, default="data")
     parser.add_argument("-ps", "--parent_selection", type=str, choices=['uniform', 'probab'], default='uniform')
-    parser.add_argument("-strat", type=str, choices=['gaussian', 'crossover', 'cma'], default='gaussian')
+    parser.add_argument("-strat", type=str, choices=['gaussian', 'crossover'], default='gaussian')
     parser.add_argument("-t", "--times", type=int, default=1,
                         help="The average of t runs is the evaluation score of a policy")
 
     args = parser.parse_args()
     args = vars(args)
-    assert args["check_n"] <= args["elites"]
     assert args["gen_size"] > args["elites"]
     assert args["times"] >= 1
     assert args["decay"] > 0
@@ -105,9 +102,6 @@ if __name__ == '__main__':
         evolution_strategy = CrossoverStrategy(policy_factory, evaluator=evaluator,
                                                parent_selection=args["parent_selection"],
                                                size=args["gen_size"], n_elites=args["elites"])
-    elif args["strat"] == "cms":
-        evolution_strategy = CovMatAdaptationStrategy(policy_factory, evaluator=evaluator,
-                                                      size=args["gen_size"], n_elites=args["elites"])
 
     optimizer = GAOptimizer(policy_factory, evolution_strategy)
 
@@ -125,17 +119,17 @@ if __name__ == '__main__':
         # json.dump(evolution_strategy.state["params"], fp)
         json.dump(args, fp)
 
-    for i in range(50):
+    n_gens = 50
+    for i in range(n_gens):
         start = time.time()
         optimizer.train_generation()
-        # print(evolution_strategy.state)
         print("generation time:", time.time() - start)
-        # Save model
-        torch.save(evolution_strategy.best_policy.state_dict(), prefix + "model_state_dict.pth")
-        # Generate plot
-        data = evolution_strategy.state["evaluations"]
-        df = pd.DataFrame(data)
-        df.to_csv(prefix + "plot.csv")
-        if args["plot"]:
+        if i == n_gens - 1:
+            # Save model
+            torch.save(evolution_strategy.best_policy.state_dict(), prefix + "model_state_dict.pth")
+            # Generate plot
+            data = evolution_strategy.state["evaluations"]
+            df = pd.DataFrame(data)
+            df.to_csv(prefix + "plot.csv")
             sns.lineplot(data=df, x="time", y="score", ci="sd")
             plt.savefig(prefix + f"plot_{i}.png")
