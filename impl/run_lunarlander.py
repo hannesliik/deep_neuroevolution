@@ -125,7 +125,7 @@ if __name__ == '__main__':
         # json.dump(evolution_strategy.state["params"], fp)
         json.dump(args, fp)
 
-    for i in range(args["gen_size"]):
+    for i in range(args["iterations"]):
         start = time.time()
         optimizer.train_generation()
         # print(evolution_strategy.state)
