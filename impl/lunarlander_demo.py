@@ -2,7 +2,9 @@ import argparse
 
 import gym
 import torch
-
+#from impl.lunar_lander_minimal import LunarLanderTorchPolicy
+import pygame
+from impl.play import play
 
 class LunarLanderTorchPolicy(torch.nn.Module):
     N_INPUTS = 8  # env.action_space.shape
@@ -10,7 +12,7 @@ class LunarLanderTorchPolicy(torch.nn.Module):
 
     def __init__(self):
         super().__init__()
-
+        # self.obs_normalizer = obs_normalizer
         self.net = torch.nn.Sequential(
             torch.nn.Linear(LunarLanderTorchPolicy.N_INPUTS, 64),
             torch.nn.Tanh(),
@@ -32,7 +34,7 @@ class LunarLanderTorchPolicy(torch.nn.Module):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("path", type=str)
+    parser.add_argument("--path", type=str, default="model_state_dict.pth")
     args = parser.parse_args()
 
     model_path = args.path
@@ -41,11 +43,20 @@ if __name__ == '__main__':
     env = gym.make("LunarLander-v2")
     done = False
     obs = env.reset()
+    play(env, zoom=4, fps=60, get_action_fn=policy, keys_to_action={(119,): 0, (97,): 1, (115,): 2, (100,): 3})
+    """
     while True:
         env.render()
+
+        for event in pygame.event.get():
+            # test events, set key states
+            if event.type == pygame.KEYDOWN:
+                print(event.key)
+
         obs, reward, done, info = env.step(policy(obs))
         if done:
             obs = env.reset()
+    """
 
 
 

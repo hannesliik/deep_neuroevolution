@@ -4,8 +4,11 @@ from typing import Callable, Dict
 import gym
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
-import seaborn as sns
+try:
+    import pandas as pd
+    import seaborn as sns
+except ImportError as e:
+    print("Plotting software not available")
 
 
 class Policy(ABC):
